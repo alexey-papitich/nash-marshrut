@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#0d6a48">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230d6a48%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22Arial%22 font-weight=%22bold%22%3EМ%3C/text%3E%3C/svg%3E">
 <title>Наш маршрут</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Маршрут">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Oswald:wght@500;600&display=swap">
@@ -232,6 +238,11 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 .cross{z-index:500}
 .find-res{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
 .find-res.warn{border-left:4px solid var(--taxi)}
+.inrow{display:flex;gap:8px}.inrow input{flex:1;min-width:0}
+.fmap{width:100%;height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:pointer}
+.nopt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.nopt button{border:0;background:none;color:var(--accent);font-weight:500;padding:8px 0;text-decoration:underline;text-underline-offset:2px}
+.chip.qf{padding-left:12px}
 .net{flex:none;padding:6px var(--gut-r) 6px var(--gut-l);background:var(--taxi);color:var(--taxi-fg);font-size:13px;font-weight:500;text-align:center}
 .picker .pm .map-zoom{top:12px}
 </style>
@@ -307,7 +318,7 @@ const SEED_TRIP = {id:'nyc-2026', data:{name:'Нью-Йорк',city:'Нью-Йо
 const S = {
   dbState:'loading', trips:[], places:[], loaded:{trips:false,places:false},
   tripId: LS.get('trip',null), tab:'places',
-  f:{cat:'all',status:'all',sort:'votes',q:''},
+  f:{cat:'all',status:'all',sort:'votes',q:'',indoor:false,short:false},
   mapDay:'all', mapSel:null, confirmMember:null,
   offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false
 };
@@ -338,7 +349,26 @@ function softRender(){
 document.addEventListener('focusout',()=>{ if(S.stale){ S.stale=false; setTimeout(softRender,0); } });
 
 /* ---------- place search (OpenStreetMap) ---------- */
-async function nominatim(path){
+// URL веб-приложения из google-maps-resolver.gs (…/exec). Разворачивает короткие ссылки maps.app.goo.gl:
+// браузер сам не может (CORS). Пусто — такие ссылки ищем по названию.
+const RESOLVER = '';
+const isGmaps = s => /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.)/i.test(String(s||''));
+async function resolveLink(link){
+  if(!RESOLVER||!isGmaps(link)) return null;
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),15000);
+  try{ const r=await fetch(RESOLVER+'?url='+encodeURIComponent(link),{signal:ctl.signal}); return r.ok?await r.json():null; }
+  catch(e){ return null; } finally{ clearTimeout(tm); }
+}
+// q из Google: «Katz's Delicatessen, 205 E Houston St, New York, NY 10002» или просто адрес «6507 Park Ave, West New York, NJ 07093»
+function splitQ(q){
+  const parts=String(q||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(!parts.length||/^-?\d+\.\d+$/.test(parts[0])) return {};
+  const addr=/^\d/.test(parts[0])?parts:parts.slice(1);
+  return {name:addr===parts?'':parts[0], address:addr.slice(0,2).join(', '), full:String(q).trim()};
+}
+let nomLast=0;
+async function nominatim(path){ // политика Nominatim: не чаще раза в секунду
+  const wait=nomLast+1100-Date.now(); nomLast=Date.now()+Math.max(0,wait); if(wait>0) await new Promise(r=>setTimeout(r,wait));
   const r=await fetch('https://nominatim.openstreetmap.org/'+path+'&format=jsonv2&addressdetails=1&accept-language=en'); if(!r.ok) return null;
   const j=await r.json(); const a=Array.isArray(j)?j[0]:j; return a&&a.lat?a:null;
 }
@@ -347,28 +377,48 @@ function nomAddr(a){
   return { address: street||String(a.display_name||'').split(', ').slice(0,2).join(', '),
     area: [ad.quarter,ad.neighbourhood,ad.suburb,ad.city_district].find(x=>x&&!/community (board|district)|\bcounty\b/i.test(x))||'' }; // в NYC neighbourhood бывает «Community Board 3»
 }
+function catOf(a){ // тип объекта OSM → наша категория
+  const t=a.type||'', c=a.category||'';
+  if(/^(cafe|coffee|tea)$/.test(t)) return 'coffee';
+  if(/^(bar|pub|nightclub|biergarten|wine_bar)$/.test(t)) return 'bars';
+  if(/^(restaurant|fast_food|food_court|ice_cream|bakery|deli|pastry|confectionery|cheese|seafood)$/.test(t)) return 'food';
+  if(/^(museum|gallery|arts_centre)$/.test(t)) return 'museum';
+  if(t==='viewpoint'||(c==='tourism'&&t==='attraction')) return 'view';
+  if((c==='leisure'&&/^(park|garden|nature_reserve)$/.test(t))||c==='historic') return 'walk';
+  if(c==='shop'||/^(mall|marketplace)$/.test(t)) return 'shop';
+  return '';
+}
 async function findPlace(link,name,city,center){
-  const out=parseLink(link); const what=out.name||name||'';
-  const short=/goo\.gl|maps\.app/.test(link||'');
+  const out=parseLink(link); if(out.lat!=null) out.src='link';
+  if(link&&(out.lat==null||!out.name)){
+    const g=await resolveLink(link);
+    if(g&&!g.error){
+      const pl=parseLink(g.url||''), sq=splitQ(g.q); const c=g.lat!=null?g:(pl.lat!=null?pl:null);
+      if(out.lat==null&&c){ out.lat=+c.lat; out.lng=+c.lng; out.src='google'; }
+      out.name=out.name||pl.name||sq.name||''; out.full=sq.full; if(sq.address) out.address=sq.address; out.resolved=true;
+    }
+  }
+  const what=out.name||name||'';
   try{
-    if(what){
+    if(what||out.full){
       const box=center&&center.lat!=null?`&viewbox=${center.lng-0.5},${center.lat+0.4},${center.lng+0.5},${center.lat-0.4}`:'';
       const withCity=city&&!what.toLowerCase().includes(city.toLowerCase())?what+', '+city:what;
-      let a=await nominatim('search?limit=1&q='+encodeURIComponent(withCity)+box);
-      if(!a&&box&&withCity!==what) a=await nominatim('search?limit=1&bounded=1&q='+encodeURIComponent(what)+box);
+      const qs=[...new Set([out.full&&what&&!out.full.startsWith(what)?what+', '+out.full:out.full, withCity, out.full].filter(Boolean))];
+      let a=null; for(const q of qs){ a=await nominatim('search?limit=1&q='+encodeURIComponent(q)+box); if(a) break; }
+      if(!a&&what&&box) a=await nominatim('search?limit=1&bounded=1&q='+encodeURIComponent(what)+box);
       if(a&&out.lat!=null&&haversine(out,{lat:+a.lat,lng:+a.lon})>0.3) a=null; // нашлась другая точка сети, а координаты из ссылки точнее
-      if(a){ if(out.lat==null){ out.lat=+a.lat; out.lng=+a.lon; } Object.assign(out,nomAddr(a)); }
+      if(a){ if(out.lat==null){ out.lat=+a.lat; out.lng=+a.lon; out.src='search'; } const na=nomAddr(a); out.address=out.address||na.address; out.area=na.area; out.cat=catOf(a); }
     }
-    if(out.lat!=null&&!out.address){ const a=await nominatim(`reverse?zoom=18&lat=${out.lat}&lon=${out.lng}`); if(a) Object.assign(out,nomAddr(a)); }
+    if(out.lat!=null&&!out.area){ const a=await nominatim(`reverse?zoom=18&lat=${out.lat}&lon=${out.lng}`); if(a){ const na=nomAddr(a); out.address=out.address||na.address; out.area=na.area; } }
   }catch(e){}
-  if(short&&out.lat==null) out.short=true;
+  if(/goo\.gl|maps\.app/.test(link||'')&&!out.resolved&&out.src!=='link') out.short=true;
   return out;
 }
 async function findCity(city){ try{ const a=await nominatim('search?limit=1&q='+encodeURIComponent(city)); return a?{lat:+a.lat,lng:+a.lon}:null; }catch(e){ return null; } }
 
 /* ---------- map (Leaflet) ---------- */
 // CARTO без ключа теперь отдаёт заглушку «API KEY REQUIRED». Берём тайлы OSM, тёмная тема — CSS-фильтр на .leaflet-tile-pane.
-function tiles(){ return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}); }
+function tiles(){ return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,crossOrigin:true,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}); }
 class LMap{
   constructor(host,center){
     // Вид задаём сразу: слои, добавленные в карту без вида, Leaflet потом не может отрисовать (падает на 'load')
@@ -457,7 +507,7 @@ function render(){
 /* Places */
 function filteredPlaces(){
   const q=S.f.q.trim().toLowerCase();
-  let l=tripPlaces().filter(p=>(S.f.cat==='all'||p.category===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
+  let l=tripPlaces().filter(p=>(S.f.cat==='all'||p.category===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
   const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a), near:(a,b)=>(fromMe(a)??1e9)-(fromMe(b)??1e9)||score(b)-score(a)};
   return l.sort(by[S.f.sort]||by.votes);
 }
@@ -476,13 +526,14 @@ function renderPlaces(){
   const counts={}; tripPlaces().forEach(p=>counts[p.category]=(counts[p.category]||0)+1);
   $('#cats').innerHTML=catChips(counts);
   $('#f2').innerHTML=`<div class="seg" role="group" aria-label="Статус">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div>
-    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>`;
+    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>
+    <button class="chip qf" data-act="qf" data-k="indoor" aria-pressed="${S.f.indoor}">На дождь</button><button class="chip qf" data-act="qf" data-k="short" aria-pressed="${S.f.short}">До часа</button>`;
   renderList();
 }
 function renderList(){
   const list=filteredPlaces(); const el=$('#list'); if(!el) return;
   if(!tripPlaces().length){ el.innerHTML=`<div class="empty"><h2>Пока пусто</h2><p>Добавь первое место: название или ссылку из Google Maps. Адрес и точку на карте найдём сами.</p><button class="btn primary" data-act="add">+ Добавить место</button></div>`; return; }
-  if(!list.length){ el.innerHTML=`<div class="empty"><p>Под эти фильтры ничего не подходит.</p><button class="btn" data-act="reset-f">Сбросить фильтры</button></div>`; return; }
+  if(!list.length){ el.innerHTML=`<div class="empty"><p>Под эти фильтры ничего не подходит.${S.f.short?' «До часа» показывает только места, где указано время.':''}${S.f.indoor?' «На дождь» — только где отмечено «в помещении».':''}</p><button class="btn" data-act="reset-f">Сбросить фильтры</button></div>`; return; }
   el.innerHTML=list.map(cardHTML).join('');
   if(S.flash&&S.places.some(p=>p.id===S.flash)){ const c=document.getElementById('p-'+S.flash); S.flash=null; if(c){ c.classList.add('flash'); c.scrollIntoView({block:'center'}); } }
 }
@@ -494,13 +545,14 @@ function voteButtons(p){ const v=votesOf(p); const my=(p.votes||{})[me()]; retur
 function cardHTML(p){
   const c=CAT[p.category]||CAT.other; const st=statusOf(p); const v=votesOf(p);
   const far=fromMe(p);
-  const facts=[far!=null?km(far)+' от тебя':'', p.price, dur(p)?`~${dur(p)} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':'', hasPt(p)?'':'нет точки'].filter(Boolean);
+  const facts=[far!=null?km(far)+' от тебя':'', p.price, dur(p)?`~${dur(p)} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':''].filter(Boolean);
   const voters=VOTES.filter(x=>v[x.v].length).map(x=>`${x.label}: ${v[x.v].map(esc).join(', ')}`).join(' · ');
   const link=safeUrl(p.link);
   return `<article class="card" id="p-${esc(p.id)}">
     <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}" title="${c.name}">${c.l}</span><div class="ttl"><h3>${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area), p.addedBy&&('добавил(а) '+esc(p.addedBy))].filter(Boolean).join(' · ')}</div></div><span class="status ${st}">${STATUS_L[st]}</span></div>
     ${p.why?`<p class="why">${esc(p.why)}</p>`:''}
     ${facts.length?`<div class="facts">${facts.map(f=>`<span>${esc(f)}</span>`).join('')}</div>`:''}
+    ${hasPt(p)?'':`<div class="nopt">Нет точки на карте <button data-act="edit" data-id="${esc(p.id)}">Найти</button></div>`}
     <div class="votes">${voteButtons(p)}${voters?`<div class="voters">${voters}</div>`:''}</div>
     <div class="card-f"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select>
       <button class="btn small ghost" data-act="done" data-id="${esc(p.id)}" aria-pressed="${!!p.done}">${p.done?'✓ Были':'Были'}</button>
@@ -588,6 +640,7 @@ function renderPlan(){
 }
 
 /* Trip */
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
 function renderTrip(){
   const main=$('#main'); main.dataset.view='trip'; const t=trip(); const m=me();
   const days=(t.days||[]).slice().sort();
@@ -599,17 +652,20 @@ function renderTrip(){
       ${S.confirmMember?`<p class="hint">Нажми ✓ ещё раз, чтобы убрать ${esc(S.confirmMember)} из поездки. Голоса останутся.</p>`:''}
       <form class="row" data-form="add-member"><input class="search" id="new-member" placeholder="Имя нового участника" autocomplete="off" style="flex:1"><button class="btn" type="submit">Добавить</button></form>
       <p class="hint">Чтобы позвать человека, просто отправь ему ссылку на это приложение. Регистрация не нужна: он выберет своё имя из списка.</p></section>
+    ${standalone()?'':`<section class="panel"><h2>Как приложение</h2><p class="hint">${/iP(hone|ad|od)/.test(navigator.userAgent)?'В Safari: «Поделиться» → «На экран «Домой»».':'В меню браузера: «Добавить на главный экран» или «Установить приложение».'} Иконка откроет «Наш маршрут» без адресной строки, и он будет работать в метро без сети: места, план и карта уже просмотренных районов. Имя выбрать нужно будет заново.</p></section>`}
     <section class="panel"><div class="row"><h2>Поездки</h2><span class="spacer"></span><button class="btn small primary" data-act="new-trip">Новая поездка</button></div>
       <div class="trips-l">${S.trips.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(x=>{ const n=S.places.filter(p=>p.tripId===x.id).length; return `<button class="trip-row" data-act="switch-trip" data-id="${esc(x.id)}" aria-current="${x.id===S.tripId}"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b><br><span>${esc(x.city||'')} · ${(x.members||[]).length} чел. · ${n} ${plural(n,'место','места','мест')}</span></div>${x.id===S.tripId?'<span>сейчас</span>':''}</button>`; }).join('')}</div></section></div>`;
 }
 
 /* ---------- sheets ---------- */
 function openSheet(html, onMount){
-  const root=$('#sheet-root'); root.innerHTML=`<div class="sheet-bg" data-sheet-bg><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  closeSheet(); const root=$('#sheet-root'); root.innerHTML=`<div class="sheet-bg" data-sheet-bg><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
   const bg=root.firstChild; bg.addEventListener('click',e=>{ if(e.target===bg) closeSheet(); });
   if(onMount) onMount(bg.querySelector('.sheet'));
 }
-function closeSheet(){ $('#sheet-root').innerHTML=''; }
+let sheetCleanup=[];
+const setSheetCleanup=fn=>sheetCleanup.push(fn);
+function closeSheet(){ const fns=sheetCleanup; sheetCleanup=[]; fns.forEach(f=>{ try{ f(); }catch(_){} }); $('#sheet-root').innerHTML=''; }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const pk=$('.picker [data-pk="cancel"]'); if(pk) pk.click(); else closeSheet(); } });
 
 function openMePicker(){
@@ -622,15 +678,20 @@ function openMePicker(){
 function openPlaceForm(p){
   const t=trip(); const isNew=!p;
   const d = p ? JSON.parse(JSON.stringify(p)) : {name:'',category:'food',area:'',address:'',why:'',link:'',lat:null,lng:null,price:'',duration:null,booking:false,indoor:null};
-  const ptText=()=>hasPt(d)?`Точка на карте есть <code>${d.lat.toFixed(4)}, ${d.lng.toFixed(4)}</code>`:'Точки на карте пока нет';
+  let src = hasPt(d) ? 'saved' : '', catTouched = !isNew;
+  const PT_L = {saved:'Точка на карте есть', link:'Точка из ссылки Google Maps ✓', google:'Точка из Google Maps ✓', search:'Точка найдена по названию. Проверь, та ли', manual:'Точка поставлена вручную'};
+  const canPaste = !!(navigator.clipboard&&navigator.clipboard.readText);
   openSheet(`<h2>${isNew?'Новое место':'Изменить место'}</h2>
     <form data-form="place">
+      <div class="field"><label for="f-link">Ссылка из Google Maps</label>
+        <div class="inrow"><input id="f-link" value="${esc(d.link)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false">${canPaste?'<button type="button" class="btn" data-fact="paste">Вставить</button>':''}</div>
+        ${isNew?'<p class="hint">В Google Maps: место → «Поделиться» → «Копировать». Название, адрес и точку подставлю сам.</p>':''}</div>
       <div class="field"><label for="f-name">Название *</label><input id="f-name" required value="${esc(d.name)}" placeholder="Например, Katz's Delicatessen" autocomplete="off"></div>
       <div id="f-dup"></div>
-      <div class="field"><label for="f-link">Ссылка (Google Maps, сайт, Instagram)</label><input id="f-link" value="${esc(d.link)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off"></div>
-      <div class="coord"><div class="st" id="f-pt">${ptText()}</div>
+      <div class="coord"><div class="fmap" id="f-map" hidden></div>
+        <div class="st" id="f-pt"></div>
         <button type="button" class="btn small primary" data-fact="find" id="f-find">Найти адрес и точку</button>
-        <button type="button" class="btn small" data-fact="pick" id="f-pick">${hasPt(d)?'Поправить на карте':'Указать на карте'}</button></div>
+        <button type="button" class="btn small" data-fact="pick" id="f-pick"></button></div>
       <div id="f-note"></div>
       <div class="field"><span class="lab">Категория</span><div class="chips" style="flex-wrap:wrap">${CATS.map(c=>`<button type="button" class="chip" data-fcat="${c.id}" aria-pressed="${d.category===c.id}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span>${c.name}</button>`).join('')}</div></div>
       <div class="two"><div class="field"><label for="f-area">Район</label><input id="f-area" value="${esc(d.area)}" placeholder="Сохо" autocomplete="off"></div>
@@ -645,47 +706,66 @@ function openPlaceForm(p){
       <div class="sheet-actions"><button class="btn primary" type="submit">${isNew?'Добавить':'Сохранить'}</button><button class="btn ghost" type="button" data-fact="cancel">Отмена</button><span class="spacer"></span>${isNew?'':`<button class="btn ghost danger" type="button" data-fact="del">Удалить</button>`}</div>
     </form>`, sheet=>{
     const read=()=>{ d.name=$('#f-name').value.trim(); d.link=$('#f-link').value.trim(); d.area=$('#f-area').value.trim(); d.address=$('#f-addr').value.trim(); d.why=$('#f-why').value.trim(); d.price=$('#f-price').value; d.duration=num($('#f-dur').value); d.booking=$('#f-book').checked; d.indoor=$('#f-indoor').checked; };
-    const setPt=()=>{ $('#f-pt').innerHTML=ptText(); $('#f-pick').textContent=hasPt(d)?'Поправить на карте':'Указать на карте'; };
     const note=(t)=>{ $('#f-note').innerHTML=t?`<div class="find-res">${t}</div>`:''; };
+    const fill=(id,v)=>{ const el=$(id); if(v&&!el.value.trim()) el.value=v; };
+    // Мини-карта с точкой: видно, туда ли попали; тап — поправить
+    let fm=null, pin=null;
+    const pinIcon=()=>{ const c=CAT[d.category]||CAT.other; return L.divIcon({className:'lpin',html:`<span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span>`,iconSize:[26,26],iconAnchor:[13,13]}); };
+    const setPt=()=>{
+      $('#f-pt').innerHTML = hasPt(d) ? `${PT_L[src]||PT_L.saved} <code>${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</code>` : 'Точки на карте пока нет';
+      $('#f-pick').textContent = hasPt(d)?'Поправить на карте':'Указать на карте';
+      const el=$('#f-map'); el.hidden=!hasPt(d); if(!hasPt(d)) return;
+      if(!fm){ fm=L.map(el,{zoomControl:false,attributionControl:false,dragging:false,touchZoom:false,doubleClickZoom:false,scrollWheelZoom:false,boxZoom:false,keyboard:false,center:[d.lat,d.lng],zoom:16});
+        tiles().addTo(fm); pin=L.marker([d.lat,d.lng],{icon:pinIcon(),interactive:false}).addTo(fm); fm.on('click',()=>pick()); setSheetCleanup(()=>fm.remove()); }
+      else { fm.setView([d.lat,d.lng],16); pin.setLatLng([d.lat,d.lng]); }
+      setTimeout(()=>fm.invalidateSize(),0);
+    };
+    const setCat=c=>{ d.category=c; sheet.querySelectorAll('[data-fcat]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.fcat===c)); if(pin) pin.setIcon(pinIcon()); };
+    const pick=()=>{ read(); openPicker(d, pt=>{ d.lat=pt.lat; d.lng=pt.lng; src='manual'; setPt(); }); };
     const dup=()=>{
       const n=normName($('#f-name').value); const same=m=>m===n||(Math.min(m.length,n.length)>=4&&(m.includes(n)||n.includes(m)));
       const hit=n.length>=3&&tripPlaces().find(x=>x.id!==d.id&&same(normName(x.name)));
       $('#f-dup').innerHTML=hit?`<div class="find-res warn">Похоже, уже есть: «${esc(hit.name)}»${hit.addedBy?`, добавил(а) ${esc(hit.addedBy)}`:''}.${isNew?' Можно просто проголосовать за него.':''}</div>`:'';
     };
-    $('#f-name').addEventListener('input',dup); dup();
-    let finding=false;
+    $('#f-name').addEventListener('input',dup); dup(); setPt();
+    let finding=0;
     async function find(auto){
-      read(); const q=d.link||d.name; if(!q){ if(!auto) note('Сначала напиши название или вставь ссылку.'); return; }
-      if(finding) return; finding=true; const b=$('#f-find'); b.disabled=true; b.textContent='Ищу…';
+      read(); if(!d.link&&!d.name){ if(!auto) note('Вставь ссылку или напиши название.'); return; }
+      const my=++finding; const b=$('#f-find'); b.disabled=true; b.textContent='Ищу…'; if(!auto||d.link) note('Ищу адрес и точку…');
       try{
-        const r=await findPlace(d.link||'', d.name||'', t.city||'', t.center);
-        if(r&&r.lat!=null){
-          d.lat=r.lat; d.lng=r.lng; setPt();
-          if(r.name&&!$('#f-name').value.trim()){ $('#f-name').value=r.name; dup(); }
-          if(r.address&&!$('#f-addr').value.trim()) $('#f-addr').value=r.address;
-          if(r.area&&!$('#f-area').value.trim()) $('#f-area').value=r.area;
-          note(`Нашёл: ${esc(r.address||r.name||'')}. Если точка не та, поправь на карте.`);
-        } else note(auto?'':(r&&r.short?'Короткую ссылку не открыть. Нажми «Найти» по названию или открой ссылку и скопируй полную из адресной строки.':'Не нашёл. Уточни название (добавь район) или поставь точку на карте.'));
+        const r=await findPlace(d.link, d.name, t.city||'', t.center);
+        if(my!==finding||!$('#f-find')) return; // форму закрыли или запустили новый поиск
+        if(r.name){ fill('#f-name',r.name); dup(); }
+        fill('#f-addr',r.address); fill('#f-area',r.area);
+        if(r.cat&&!catTouched) setCat(r.cat);
+        if(r.lat!=null&&(src===''||src==='search'||r.src!=='search')){ d.lat=r.lat; d.lng=r.lng; src=r.src; setPt(); }
+        if(r.lat!=null) note(r.src==='search'?`Нашёл по названию: ${esc(r.address||r.name||'')}. Посмотри на мини-карте, то ли это место.`:`Готово: ${esc(r.address||r.name||'точка из ссылки')}.`);
+        else if(r.short) note(RESOLVER?'Не получилось открыть ссылку. Напиши название, найду по нему, или поставь точку на карте.':'Короткую ссылку браузер открыть не может. Напиши название, найду по нему, или поставь точку на карте.');
+        else note(auto&&!d.link?'':'Не нашёл. Уточни название (добавь район) или поставь точку на карте.');
       }catch(e){ note('Поиск сейчас не работает. Поставь точку на карте вручную.'); }
-      finally{ finding=false; b.disabled=false; b.textContent='Найти адрес и точку'; }
+      finally{ if(my===finding&&$('#f-find')){ b.disabled=false; b.textContent='Найти адрес и точку'; } }
     }
-    $('#f-link').addEventListener('change',()=>{ const r=parseLink($('#f-link').value); if(r.name&&!$('#f-name').value.trim()){ $('#f-name').value=r.name; dup(); } if(r.lat!=null){ d.lat=r.lat; d.lng=r.lng; setPt(); } if(r.lat==null||!$('#f-addr').value.trim()) find(true); });
-    // «Поделиться» из Google Maps даёт «Название\nАдрес\nhttps://maps.app.goo.gl/…»; в однострочном поле переносы бы склеились
-    $('#f-link').addEventListener('paste',e=>{
-      const txt=(e.clipboardData&&e.clipboardData.getData('text'))||''; const u=txt.match(/https?:\/\/\S+/); if(!u||txt.trim()===u[0]) return;
-      e.preventDefault(); $('#f-link').value=u[0];
-      const lines=txt.replace(u[0],'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-      if(lines[0]&&lines[0].length<80&&!$('#f-name').value.trim()){ $('#f-name').value=lines[0]; dup(); }
-      if(lines[1]&&/\d/.test(lines[1])&&lines[1].length<120&&!$('#f-addr').value.trim()) $('#f-addr').value=lines[1];
-      $('#f-link').dispatchEvent(new Event('change'));
-    });
-    sheet.querySelectorAll('[data-fcat]').forEach(b=>b.addEventListener('click',()=>{ d.category=b.dataset.fcat; sheet.querySelectorAll('[data-fcat]').forEach(x=>x.setAttribute('aria-pressed',x===b)); }));
+    const onLink=()=>{ const r=parseLink($('#f-link').value); if(r.name){ fill('#f-name',r.name); dup(); } if(r.lat!=null){ d.lat=r.lat; d.lng=r.lng; src='link'; setPt(); } if($('#f-link').value.trim()&&(r.lat==null||!$('#f-addr').value.trim())) find(true); };
+    // Текст из «Поделиться» бывает «Название\nАдрес\nhttps://maps.app.goo.gl/…»; в однострочном поле переносы склеились бы
+    const takeText=txt=>{
+      const u=String(txt).match(/https?:\/\/\S+/);
+      if(!u){ fill('#f-name',String(txt).trim().split(/\r?\n/)[0].slice(0,120)); dup(); find(true); return; }
+      $('#f-link').value=u[0];
+      const lines=txt.replace(u[0],'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      if(lines[0]&&lines[0].length<80){ fill('#f-name',lines[0]); dup(); }
+      if(lines[1]&&/\d/.test(lines[1])&&lines[1].length<120) fill('#f-addr',lines[1]);
+      onLink();
+    };
+    $('#f-link').addEventListener('change',onLink);
+    $('#f-link').addEventListener('paste',e=>{ const txt=(e.clipboardData&&e.clipboardData.getData('text'))||''; if(!txt.trim()) return; e.preventDefault(); takeText(txt); });
+    sheet.querySelectorAll('[data-fcat]').forEach(b=>b.addEventListener('click',()=>{ catTouched=true; setCat(b.dataset.fcat); }));
     let delArmed=false;
     sheet.addEventListener('click',async e=>{
       const a=e.target.closest('[data-fact]'); if(!a) return; const act=a.dataset.fact;
       if(act==='cancel') closeSheet();
       if(act==='find') find(false);
-      if(act==='pick'){ read(); openPicker(d, pt=>{ d.lat=pt.lat; d.lng=pt.lng; setPt(); }); }
+      if(act==='pick') pick();
+      if(act==='paste'){ try{ const txt=await navigator.clipboard.readText(); if(txt&&txt.trim()) takeText(txt); else toast('В буфере пусто'); }catch(_){ $('#f-link').focus(); toast('Вставь ссылку в поле: долгое нажатие → «Вставить»'); } }
       if(act==='del'){
         if(!delArmed){ delArmed=true; a.textContent='Точно удалить?'; return; }
         if(await write(()=>placeRef(p.id).delete(),'Место удалено')){ if(S.mapSel===p.id) S.mapSel=null; closeSheet(); }
@@ -696,11 +776,11 @@ function openPlaceForm(p){
       const body={tripId:t.id,name:d.name,category:d.category,area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:dur(d)||null,booking:!!d.booking,indoor:!!d.indoor};
       closeSheet();
       if(isNew){ const id=newId('p'); S.flash=id;
-        if(S.f.cat!=='all'&&S.f.cat!==d.category) S.f.cat='all'; if(!['all','idea'].includes(S.f.status)) S.f.status='all'; if(S.f.q){ S.f.q=''; const q=$('#q'); if(q) q.value=''; } // чтобы новое место было видно
+        if(S.f.cat!=='all'&&S.f.cat!==d.category) S.f.cat='all'; if(!['all','idea'].includes(S.f.status)) S.f.status='all'; if(S.f.q){ S.f.q=''; const q=$('#q'); if(q) q.value=''; } S.f.indoor=S.f.short=false; // чтобы новое место было видно
         await write(()=>placeRef(id).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),day:'',done:false,order:0,votes:me()?{[me()]:2}:{}}),'Место добавлено'); }
       else await write(()=>placeRef(p.id).update(body),'Сохранено');
     });
-    if(isNew) setTimeout(()=>{ try{$('#f-name').focus()}catch(_){} },50);
+    if(!isNew&&!hasPt(d)&&(d.link||d.name)) find(true); // у старого места нет точки: сразу пробуем найти
   });
 }
 
@@ -760,7 +840,8 @@ document.addEventListener('click', async e=>{
     case 'edit': { const p=tripPlaces().find(x=>x.id===id); if(p) openPlaceForm(p); else toast('Это место уже удалили'); break; }
     case 'cat': S.f.cat=a.dataset.cat; render(); break;
     case 'status': S.f.status=a.dataset.st; render(); break;
-    case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:''}; const q=$('#q'); if(q) q.value=''; render(); break; }
+    case 'qf': S.f[a.dataset.k]=!S.f[a.dataset.k]; render(); break;
+    case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:'',indoor:false,short:false}; const q=$('#q'); if(q) q.value=''; render(); break; }
     case 'vote': {
       const m=me(); if(!m){ openMePicker(); return; }
       const p=tripPlaces().find(x=>x.id===id); if(!p) return; const cur=(p.votes||{})[m]; const v=+a.dataset.v;
@@ -839,6 +920,8 @@ function pickTrip(){
 }
 // iOS приближает страницу при тапе в поле со шрифтом меньше 16px. maximum-scale это отключает, а щипком масштабировать iOS всё равно даёт.
 if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)){ const v=$('meta[name=viewport]'); if(v) v.content+=', maximum-scale=1'; }
+// Офлайн-оболочка (sw.js): без сети приложение всё равно откроется, данные даст кэш Firestore
+if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(e=>console.warn('sw',e));
 addEventListener('online',()=>{ S.offline=false; renderTop(); });
 addEventListener('offline',()=>{ S.offline=true; renderTop(); });
 render();
