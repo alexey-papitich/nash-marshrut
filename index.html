@@ -288,7 +288,8 @@ function votesOf(p){ const v=p.votes||{}; const r={2:[],1:[],'-1':[]}; for(const
 function score(p){ const r=votesOf(p); return r[2].length*2+r[1].length-r[-1].length; }
 function statusOf(p){ return p.done?'done':(p.day?'planned':'idea'); }
 const STATUS_L = {idea:'Идея',planned:'В плане',done:'Были'};
-function gmUrl(p,city){ const q = p.address ? `${p.name}, ${p.address}` : (hasPt(p)?`${p.lat},${p.lng}`:`${p.name}, ${city||''}`); return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+// Открыть в Google Maps: своя ссылка Google как есть, иначе точные координаты (поиск по названию находит не то), и только без точки — по названию
+function gmUrl(p,city){ const l=safeUrl(p.link); if(l&&isGmaps(l)) return l; const q = hasPt(p) ? `${p.lat},${p.lng}` : [p.name,p.address||city].filter(Boolean).join(', '); return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
 function goUrl(p,city){ const q = hasPt(p) ? `${p.lat},${p.lng}` : [p.name,p.address||city].filter(Boolean).join(', '); return 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q); }
 const normName = s => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/^the\s+/,'').replace(/['’]s\b/g,'').replace(/[^\p{L}\p{N}]+/gu,'');
 function dirUrl(list){ const pts=list.filter(hasPt); if(pts.length<2) return null; const f=p=>`${p.lat},${p.lng}`; const mid=pts.slice(1,-1).slice(0,8).map(f).join('|'); return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(f(pts[0]))+'&destination='+encodeURIComponent(f(pts[pts.length-1]))+(mid?'&waypoints='+encodeURIComponent(mid):''); }
@@ -558,7 +559,7 @@ function cardHTML(p){
       <button class="btn small ghost" data-act="done" data-id="${esc(p.id)}" aria-pressed="${!!p.done}">${p.done?'✓ Были':'Были'}</button>
       ${hasPt(p)?`<button class="btn small ghost" data-act="show-map" data-id="${esc(p.id)}">На карте</button>`:''}
       <a href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a>
-      ${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Ссылка</a>`:''}
+      ${link&&!isGmaps(link)?`<a href="${esc(link)}" target="_blank" rel="noopener">Ссылка</a>`:''}
       <span class="spacer"></span><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div>
   </article>`;
 }
