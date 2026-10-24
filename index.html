@@ -375,7 +375,7 @@ async function nominatim(path){ // политика Nominatim: не чаще р�
 function nomAddr(a){
   const ad=a.address||{}; const street=[ad.house_number,ad.road].filter(Boolean).join(' ');
   return { address: street||String(a.display_name||'').split(', ').slice(0,2).join(', '),
-    area: [ad.quarter,ad.neighbourhood,ad.suburb,ad.city_district].find(x=>x&&!/community (board|district)|\bcounty\b/i.test(x))||'' }; // в NYC neighbourhood бывает «Community Board 3»
+    area: [ad.quarter,ad.neighbourhood,ad.suburb,ad.city_district,ad.town,ad.village].find(x=>x&&!/community (board|district)|\bcounty\b/i.test(x))||'' }; // в NYC neighbourhood бывает «Community Board 3»
 }
 function catOf(a){ // тип объекта OSM → наша категория
   const t=a.type||'', c=a.category||'';
