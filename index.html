@@ -21,7 +21,7 @@ html,body{margin:0}
 :root{
   --bg:#f2f3ef; --surface:#ffffff; --surface-2:#e7eae4; --fg:#17201b; --muted:#5a665f; --line:#d3d8d1;
   --accent:#0d6a48; --accent-2:#0a5539; --accent-fg:#ffffff; --taxi:#f2b705; --taxi-fg:#1d1a0b; --danger:#b3261e;
-  --water:#cbdbe2; --land:#f8f7f2; --land-line:#aeb6ad; --park:#cfe3c4; --label:#6f7a73; --shadow:0 6px 24px rgba(20,30,25,.14);
+  --water:#cbdbe2; --shadow:0 6px 24px rgba(20,30,25,.14);
   --c-food:#ee352e; --c-coffee:#8a5a2b; --c-bars:#b933ad; --c-museum:#0039a6; --c-view:#ff6319; --c-walk:#00933c; --c-shop:#fccc0a; --c-other:#7d8580;
   --f-display:"Oswald","Arial Narrow","Roboto Condensed",sans-serif;
   --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -31,13 +31,13 @@ html,body{margin:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111513; --surface:#1a1f1c; --surface-2:#232a26; --fg:#e5ebe6; --muted:#98a49d; --line:#313a35;
   --accent:#36a97b; --accent-2:#2c8f67; --accent-fg:#06120c; --taxi:#f5c43a; --taxi-fg:#1d1a0b; --danger:#ef7d74;
-  --water:#142229; --land:#1e2421; --land-line:#3b4540; --park:#21382a; --label:#8b978f; --shadow:0 6px 24px rgba(0,0,0,.45);
+  --water:#142229; --shadow:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
   --bg:#111513; --surface:#1a1f1c; --surface-2:#232a26; --fg:#e5ebe6; --muted:#98a49d; --line:#313a35;
   --accent:#36a97b; --accent-2:#2c8f67; --accent-fg:#06120c; --taxi:#f5c43a; --taxi-fg:#1d1a0b; --danger:#ef7d74;
-  --water:#142229; --land:#1e2421; --land-line:#3b4540; --park:#21382a; --label:#8b978f; --shadow:0 6px 24px rgba(0,0,0,.45);
+  --water:#142229; --shadow:0 6px 24px rgba(0,0,0,.45);
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -53,7 +53,7 @@ button{cursor:pointer}
 .sign{flex:1;min-width:0;background:#0d6a48;color:#fff;border-radius:8px;padding:3px}
 .sign-in{border:2px solid rgba(255,255,255,.92);border-radius:6px;padding:4px 10px 5px;display:flex;align-items:baseline;gap:10px;min-width:0}
 .trip-name{font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:.04em;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.trip-meta{font-family:var(--f-mono);font-size:11px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-meta{flex-shrink:100;min-width:0;font-family:var(--f-mono);font-size:11px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .me{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-weight:500;font-size:14px;max-width:40vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .me small{color:var(--muted);font-weight:400}
 
@@ -69,7 +69,7 @@ main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
 /* Banners, buttons */
 .banner{margin:8px 0;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
 .banner.warn{border-left:4px solid var(--taxi)}
-.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:14px;line-height:1.2}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;padding:9px 14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:14px;line-height:1.2}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .btn.ghost{background:transparent}
 .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
@@ -128,25 +128,6 @@ select.sel{border:1px solid var(--line);background:var(--surface);border-radius:
 
 /* Map */
 .map-wrap{position:absolute;inset:0}
-.mapbox{position:absolute;inset:0;overflow:hidden;background:var(--water)}
-.mapbox svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
-.mapbox .water{fill:var(--water)}
-.mapbox .land path{fill:var(--land);stroke:var(--land-line);stroke-width:1;vector-effect:non-scaling-stroke}
-.mapbox .park{fill:var(--park)}
-.mapbox .grid line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
-.mapbox .lbl{fill:var(--label);font-family:var(--f-body);font-size:11px;text-anchor:middle;pointer-events:none}
-.mapbox .lbl.boro{font-family:var(--f-display);font-size:15px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;opacity:.75}
-.mapbox .lbl.water-l{font-style:italic;fill:color-mix(in srgb,var(--label) 70%,var(--water))}
-.mapbox .route polyline{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;opacity:.8}
-.mapbox .pin{cursor:pointer}
-.mapbox .pin circle{stroke:var(--surface);stroke-width:2.2}
-.mapbox .pin text{fill:#fff;font-family:var(--f-display);font-weight:600;font-size:12px;text-anchor:middle;pointer-events:none}
-.mapbox .pin.dark text{fill:#1d1a0b}
-.mapbox .pin.dim{opacity:.35}
-.mapbox .pin.sel circle{stroke:var(--fg);stroke-width:3}
-.mapbox .pin .halo{fill:var(--taxi);stroke:none;opacity:.9}
-.scalebar{position:absolute;left:calc(var(--gut-l) + 0px);bottom:10px;font-family:var(--f-mono);font-size:11px;color:var(--fg);pointer-events:none}
-.scalebar i{display:block;height:6px;border:2px solid var(--fg);border-top:0;margin-bottom:2px}
 .map-top{position:absolute;top:8px;left:0;right:0;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .map-top>*{pointer-events:auto}
 .map-top .chips .chip{box-shadow:0 1px 4px rgba(0,0,0,.12)}
@@ -161,7 +142,10 @@ select.sel{border:1px solid var(--line);background:var(--surface);border-radius:
 .near button{border:0;background:none;color:var(--accent);padding:0;font-size:13px;text-decoration:underline;text-underline-offset:2px}
 
 /* Plan */
-.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden;scroll-margin-top:8px}
+.day.past{opacity:.7}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.today-b{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:6px;background:var(--taxi);color:var(--taxi-fg)}
 .day-h{display:flex;align-items:baseline;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .day-h h3{margin:0;font-family:var(--f-display);font-weight:500;font-size:19px;letter-spacing:.03em;text-transform:uppercase}
 .day-h .meta{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
@@ -170,7 +154,7 @@ select.sel{border:1px solid var(--line);background:var(--surface);border-radius:
 .stop:last-child{border-bottom:0}
 .stop .num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:13px}
 .stop .num.done{background:var(--muted)}
-.stop .nm{flex:1;min-width:0}
+.stop .nm{flex:1;min-width:0;border:0;background:none;padding:0;text-align:left}
 .stop .nm b{font-weight:500;display:block;overflow-wrap:anywhere}
 .stop .nm span{font-size:12px;color:var(--muted)}
 .stop .leg{display:block;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
@@ -197,7 +181,7 @@ select.sel{border:1px solid var(--line);background:var(--surface);border-radius:
 
 /* Sheet */
 .sheet-bg{position:fixed;inset:0;background:rgba(10,15,12,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--bg);width:100%;max-width:620px;max-height:92%;overflow:auto;border-radius:16px 16px 0 0;padding-top:14px;padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:var(--gut-l);padding-right:var(--gut-r);box-shadow:var(--shadow)}
+.sheet{background:var(--bg);width:100%;max-width:620px;max-height:92%;overflow:auto;overscroll-behavior:contain;border-radius:16px 16px 0 0;padding-top:14px;padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:var(--gut-l);padding-right:var(--gut-r);box-shadow:var(--shadow)}
 @media (min-width:700px){.sheet-bg{align-items:center}.sheet{border-radius:16px;max-height:88%}}
 .sheet h2{margin:0 0 12px;font-family:var(--f-display);font-weight:500;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
@@ -211,7 +195,6 @@ select.sel{border:1px solid var(--line);background:var(--surface);border-radius:
 .coord{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:12px}
 .coord .st{flex:1;min-width:140px;font-size:13px}
 .coord .st code{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-.ai-note{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
 .sheet-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
 details.more{margin-bottom:12px}
 details.more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--accent);padding:4px 0}
@@ -243,11 +226,15 @@ details.more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--a
 .map-top{z-index:500}.map-zoom{z-index:500}.map-note{z-index:500}.map-card{z-index:600}
 .cross{z-index:500}
 .find-res{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
+.find-res.warn{border-left:4px solid var(--taxi)}
+.net{flex:none;padding:6px var(--gut-r) 6px var(--gut-l);background:var(--taxi);color:var(--taxi-fg);font-size:13px;font-weight:500;text-align:center}
+.picker .pm .map-zoom{top:12px}
 </style>
 </head>
 <body>
 <div class="app" id="app">
   <header class="top" id="top"></header>
+  <div class="net" id="net" hidden>Нет сети. Показываю сохранённое, изменения отправятся сами.</div>
   <main id="main"></main>
   <nav class="tabs" id="tabs" aria-label="Разделы"></nav>
 </div>
@@ -277,13 +264,17 @@ function haversine(a,b){ const R=6371, t=Math.PI/180; const dLat=(b.lat-a.lat)*t
 const hasPt = p => p && typeof p.lat==='number' && typeof p.lng==='number' && !isNaN(p.lat) && !isNaN(p.lng);
 function km(d){ return d<1 ? Math.round(d*1000/10)*10+' м' : d.toFixed(1).replace('.',',')+' км'; }
 function fmtDay(d,long){ if(!d) return ''; const dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('ru-RU', long?{weekday:'long',day:'numeric',month:'long'}:{weekday:'short',day:'numeric',month:'short'}); }
-function addDays(d,n){ const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
-function todayISO(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+const isoDay = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+function addDays(d,n){ const dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return todayISO(); dt.setDate(dt.getDate()+n); return isoDay(dt); }
+function todayISO(){ return isoDay(new Date()); }
+const dur = p => { const n=Math.round(+p.duration); return n>0&&n<10000?n:0; };
 function votesOf(p){ const v=p.votes||{}; const r={2:[],1:[],'-1':[]}; for(const [n,x] of Object.entries(v)){ if(r[x]) r[x].push(n); } return r; }
 function score(p){ const r=votesOf(p); return r[2].length*2+r[1].length-r[-1].length; }
 function statusOf(p){ return p.done?'done':(p.day?'planned':'idea'); }
 const STATUS_L = {idea:'Идея',planned:'В плане',done:'Были'};
 function gmUrl(p,city){ const q = p.address ? `${p.name}, ${p.address}` : (hasPt(p)?`${p.lat},${p.lng}`:`${p.name}, ${city||''}`); return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+function goUrl(p,city){ const q = hasPt(p) ? `${p.lat},${p.lng}` : [p.name,p.address||city].filter(Boolean).join(', '); return 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q); }
+const normName = s => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/^the\s+/,'').replace(/['’]s\b/g,'').replace(/[^\p{L}\p{N}]+/gu,'');
 function dirUrl(list){ const pts=list.filter(hasPt); if(pts.length<2) return null; const f=p=>`${p.lat},${p.lng}`; const mid=pts.slice(1,-1).slice(0,8).map(f).join('|'); return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(f(pts[0]))+'&destination='+encodeURIComponent(f(pts[pts.length-1]))+(mid?'&waypoints='+encodeURIComponent(mid):''); }
 function parseLink(link){
   const s=String(link||''); let m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/[?&](?:q|query|ll|destination|center)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i) || s.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
@@ -291,8 +282,7 @@ function parseLink(link){
   const n = s.match(/\/maps\/place\/([^/@?]+)/); if(n){ try{ out.name=decodeURIComponent(n[1].replace(/\+/g,' ')); }catch(e){} }
   return out;
 }
-function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
-function deepMerge(o,patch){ const r={...(o||{})}; for(const k in patch){ const v=patch[k]; if(v&&typeof v==='object'&&!Array.isArray(v)&&r[k]&&typeof r[k]==='object'&&!Array.isArray(r[k])) r[k]=deepMerge(r[k],v); else r[k]=v; } return r; }
+function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
 const newId = p => p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ---------- Firebase ---------- */
@@ -313,7 +303,8 @@ const S = {
   dbState:'loading', trips:[], places:[], loaded:{trips:false,places:false},
   tripId: LS.get('trip',null), tab:'places',
   f:{cat:'all',status:'all',sort:'votes',q:''},
-  mapDay:'all', mapSel:null, confirmMember:null
+  mapDay:'all', mapSel:null, confirmMember:null,
+  offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false
 };
 const trip = () => S.trips.find(t=>t.id===S.tripId) || null;
 const tripPlaces = () => S.places.filter(p=>p.tripId===S.tripId);
@@ -321,57 +312,73 @@ const me = () => { const t=trip(); const n=t?LS.get('me:'+t.id,null):null; retur
 
 /* ---------- writes ---------- */
 function flatten(obj,prefix,out){ out=out||[]; prefix=prefix||[]; for(const k of Object.keys(obj)){ const v=obj[k]; if(v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length) flatten(v,prefix.concat(k),out); else out.push(new firebase.firestore.FieldPath(...prefix.concat(k)), v); } return out; }
-const ref=(col,id)=>{ const d=FS.collection(col).doc(id); return { set:data=>d.set(data), update:data=>{ const a=flatten(data); return d.update(a[0],a[1],...a.slice(2)); }, delete:()=>d.delete() }; };
+const ref=(col,id)=>{ const d=FS.collection(col).doc(id); return { set:data=>d.set(data), update:data=>d.update(...flatten(data)), delete:()=>d.delete() }; };
 const placeRef=id=>ref('places',id), tripRef=id=>ref('trips',id);
+// Несколько правок одним пакетом: [[коллекция, id, patch], ...]. Атомарно и без сети не застревает на первой.
+function batch(ops){ const b=FS.batch(); for(const [col,id,data] of ops) b.update(FS.collection(col).doc(id),...flatten(data)); return b.commit(); }
+function writeErr(e){ console.error(e); toast(e&&e.code==='permission-denied'?'База пока закрыта для записи. Владелец должен опубликовать правила.':e&&e.code==='not-found'?'Это место уже удалили.':'Не сохранилось. Проверь интернет и попробуй ещё раз.'); }
 async function write(fn, okMsg){
   if(!FS){ toast('Нет связи с базой'); return false; }
-  try{ await fn(); if(okMsg) toast(okMsg); return true; }
-  catch(e){ console.error(e); toast(e&&e.code==='permission-denied'?'База пока закрыта для записи. Владелец должен опубликовать правила.':'Не сохранилось. Проверь интернет и попробуй ещё раз.'); return false; }
+  let pr; try{ pr=fn(); }catch(e){ writeErr(e); return false; }
+  if(S.offline){ Promise.resolve(pr).catch(writeErr); if(okMsg) toast(okMsg+'. Отправлю, когда будет сеть'); return true; } // без сети Firestore держит запись в очереди
+  try{ await pr; if(okMsg) toast(okMsg); return true; }
+  catch(e){ writeErr(e); return false; }
 }
+// Чужие правки приходят в любой момент. Открытый <select> не трогаем, иначе на iPhone выбор теряется; дорисуем после blur.
+const selectOpen = () => { const a=document.activeElement; return !!a&&a.tagName==='SELECT'&&$('#main').contains(a); };
 function softRender(){
-  if(S.tab==='places'&&$('#main').dataset.view==='places'&&document.activeElement&&document.activeElement.id==='q'){
-    renderTop(); const c={}; tripPlaces().forEach(p=>c[p.category]=(c[p.category]||0)+1); $('#cats').innerHTML=catChips(c); renderList(); return;
-  }
-  if(document.querySelector('.sheet-bg [data-form="place"]')||document.querySelector('.picker')){ renderTop(); return; } // don't disturb an open form
+  if(selectOpen()){ S.stale=true; renderTop(); return; }
   render();
 }
+document.addEventListener('focusout',()=>{ if(S.stale){ S.stale=false; setTimeout(softRender,0); } });
 
 /* ---------- place search (OpenStreetMap) ---------- */
+async function nominatim(path){
+  const r=await fetch('https://nominatim.openstreetmap.org/'+path+'&format=jsonv2&addressdetails=1&accept-language=en'); if(!r.ok) return null;
+  const j=await r.json(); const a=Array.isArray(j)?j[0]:j; return a&&a.lat?a:null;
+}
+function nomAddr(a){
+  const ad=a.address||{}; const street=[ad.house_number,ad.road].filter(Boolean).join(' ');
+  return { address: street||String(a.display_name||'').split(', ').slice(0,2).join(', '),
+    area: [ad.quarter,ad.neighbourhood,ad.suburb,ad.city_district].find(x=>x&&!/community (board|district)|\bcounty\b/i.test(x))||'' }; // в NYC neighbourhood бывает «Community Board 3»
+}
 async function findPlace(link,name,city,center){
-  const out={}; const pl=parseLink(link); Object.assign(out,pl);
-  const what=out.name||name||'';
-  if(/goo\.gl|maps\.app/.test(link||'')&&out.lat==null&&!what) return {short:true};
-  const q = what ? (city&&!new RegExp(city,'i').test(what)?what+', '+city:what) : (out.lat==null?city:'');
+  const out=parseLink(link); const what=out.name||name||'';
+  const short=/goo\.gl|maps\.app/.test(link||'');
   try{
-    let url;
-    if(q){ url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&accept-language=en&q='+encodeURIComponent(q);
-      if(center&&center.lat!=null) url+=`&viewbox=${center.lng-0.5},${center.lat+0.4},${center.lng+0.5},${center.lat-0.4}`; }
-    else if(out.lat!=null) url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=en&lat=${out.lat}&lon=${out.lng}`;
-    if(url){
-      const r=await fetch(url); const j=await r.json(); const a=Array.isArray(j)?j[0]:j;
-      if(a&&a.lat){
-        if(out.lat==null){ out.lat=+a.lat; out.lng=+a.lon; }
-        const ad=a.address||{}; const street=[ad.house_number,ad.road].filter(Boolean).join(' ');
-        out.address=street||String(a.display_name||'').split(', ').slice(0,2).join(', ');
-        out.area=ad.neighbourhood||ad.suburb||ad.quarter||ad.city_district||'';
-      }
+    if(what){
+      const box=center&&center.lat!=null?`&viewbox=${center.lng-0.5},${center.lat+0.4},${center.lng+0.5},${center.lat-0.4}`:'';
+      const withCity=city&&!what.toLowerCase().includes(city.toLowerCase())?what+', '+city:what;
+      let a=await nominatim('search?limit=1&q='+encodeURIComponent(withCity)+box);
+      if(!a&&box&&withCity!==what) a=await nominatim('search?limit=1&bounded=1&q='+encodeURIComponent(what)+box);
+      if(a&&out.lat!=null&&haversine(out,{lat:+a.lat,lng:+a.lon})>0.3) a=null; // нашлась другая точка сети, а координаты из ссылки точнее
+      if(a){ if(out.lat==null){ out.lat=+a.lat; out.lng=+a.lon; } Object.assign(out,nomAddr(a)); }
     }
+    if(out.lat!=null&&!out.address){ const a=await nominatim(`reverse?zoom=18&lat=${out.lat}&lon=${out.lng}`); if(a) Object.assign(out,nomAddr(a)); }
   }catch(e){}
-  if(/goo\.gl|maps\.app/.test(link||'')&&out.lat==null) out.short=true;
+  if(short&&out.lat==null) out.short=true;
   return out;
 }
+async function findCity(city){ try{ const a=await nominatim('search?limit=1&q='+encodeURIComponent(city)); return a?{lat:+a.lat,lng:+a.lon}:null; }catch(e){ return null; } }
 
 /* ---------- map (Leaflet) ---------- */
 const DARK = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
 function tiles(){ return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${DARK?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`,{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}); }
 class LMap{
-  constructor(host){
-    this.map=L.map(host,{zoomControl:false,attributionControl:true,tap:true});
-    tiles().addTo(this.map); this.layer=L.layerGroup().addTo(this.map); this.routeL=null; this.onTap=null;
+  constructor(host,center){
+    // Вид задаём сразу: слои, добавленные в карту без вида, Leaflet потом не может отрисовать (падает на 'load')
+    const c=hasPt(center)?center:{lat:40.742,lng:-73.975};
+    this.map=L.map(host,{zoomControl:false,attributionControl:true,center:[c.lat,c.lng],zoom:13});
+    tiles().addTo(this.map); this.layer=L.layerGroup().addTo(this.map); this.hereL=L.layerGroup().addTo(this.map); this.routeL=null; this.onTap=null;
     this.map.on('click',()=>{ if(this.onTap) this.onTap(null); });
-    this.inited=false;
+    this.inited=false; this.setHere(S.here);
   }
-  home(center){ const c=center||{lat:40.742,lng:-73.975}; this.map.setView([c.lat,c.lng],13); this.inited=true; }
+  setHere(h){
+    this.hereL.clearLayers(); if(!h) return;
+    if(h.acc>30) L.circle([h.lat,h.lng],{radius:Math.min(h.acc,2000),color:'#1a73e8',weight:1,fillOpacity:.1,interactive:false}).addTo(this.hereL);
+    L.circleMarker([h.lat,h.lng],{radius:7,color:'#fff',weight:3,fillColor:'#1a73e8',fillOpacity:1,interactive:false}).addTo(this.hereL);
+  }
+  home(center){ const c=hasPt(center)?center:{lat:40.742,lng:-73.975}; this.map.setView([c.lat,c.lng],13); this.inited=true; }
   setPins(list,{sel,numbered,route,dimIds}={}){
     this.layer.clearLayers(); if(this.routeL){ this.routeL.remove(); this.routeL=null; }
     const r=(route||[]).filter(hasPt);
@@ -387,7 +394,25 @@ class LMap{
   fit(list,center){ const pts=(list||[]).filter(hasPt); if(!pts.length){ this.home(center); return; } if(pts.length===1){ this.map.setView([pts[0].lat,pts[0].lng],15); this.inited=true; return; } this.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),{padding:[50,50],maxZoom:16}); this.inited=true; }
   focus(p){ if(hasPt(p)){ this.map.setView([p.lat,p.lng],Math.max(this.map.getZoom()||15,15)); this.inited=true; } }
 }
-let mainMap=null;
+let mainMap=null, pickMap=null;
+
+/* ---------- где я (только на этом телефоне, в базу не пишется) ---------- */
+let geoWatch=null, geoWaiters=[], hereShown=null;
+function locate(cb){
+  if(cb){ if(S.here) cb(S.here); else geoWaiters.push(cb); }
+  if(geoWatch!=null) return;
+  if(!navigator.geolocation){ toast('Телефон не даёт определить место'); return; }
+  geoWatch=navigator.geolocation.watchPosition(pos=>{
+    S.here={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy};
+    [mainMap,pickMap].forEach(m=>m&&m.setHere(S.here));
+    const w=geoWaiters; geoWaiters=[]; w.forEach(f=>f(S.here));
+    if(!hereShown||haversine(hereShown,S.here)>0.05){ hereShown=S.here; if(selectOpen()) S.stale=true; else if(S.tab==='places') renderList(); else if(S.tab==='map') renderMapCard(); } // не дёргать список на каждые пару метров
+  }, err=>{
+    navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[];
+    toast(err.code===1?'Нет доступа к геолокации. Разреши его для браузера в настройках.':'Не получилось определить, где ты');
+  }, {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
+}
+const fromMe = p => S.here&&hasPt(p) ? haversine(S.here,p) : null;
 
 /* ---------- render ---------- */
 const ICONS = {
@@ -397,12 +422,14 @@ const ICONS = {
   trip:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2c2.9.2 5.5 2.5 5.5 5.8"/></svg>'
 };
 const TAB_L = {places:'Места',map:'Карта',plan:'План',trip:'Поездка'};
+const LOCATE_SVG = '<svg viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>';
 
 function renderTop(){
   const t=trip(); const m=me();
-  const days=t?(t.days||[]).slice().sort():[];
-  const dates = days.length ? `${fmtDay(days[0])} – ${fmtDay(days[days.length-1])}` : '';
-  $('#top').innerHTML = `<div class="sign"><div class="sign-in"><span class="trip-name">${esc(t?t.name:'Наш маршрут')}</span><span class="trip-meta">${esc(t?[(t.members||[]).length+' чел.',dates].filter(Boolean).join(' · '):'')}</span></div></div>
+  const days=t?(t.days||[]).slice().sort():[]; const ti=days.indexOf(todayISO());
+  const dates = ti>=0 ? `день ${ti+1} из ${days.length}` : days.length ? `${fmtDay(days[0])} – ${fmtDay(days[days.length-1])}` : '';
+  $('#net').hidden=!S.offline;
+  $('#top').innerHTML = `<div class="sign"><div class="sign-in"><span class="trip-name">${esc(t?t.name:'Наш маршрут')}</span><span class="trip-meta">${esc(t?[dates,(t.members||[]).length+' чел.'].filter(Boolean).join(' · '):'')}</span></div></div>
   ${t?`<button class="me" data-act="pick-me" aria-label="Кто ты">${m?esc(m):'Кто ты?'}</button>`:''}`;
 }
 function renderTabs(){
@@ -416,7 +443,6 @@ function banners(){
 function render(){
   renderTop(); renderTabs();
   const main=$('#main');
-  if(S.tab!=='map'){ const h=$('#lmap'); if(h&&main.dataset.view!=='map'){} }
   if(S.dbState==='loading'){ main.dataset.view='loading'; main.innerHTML=`<div class="wrap"><div class="empty"><p>Загружаю общий список…</p></div></div>`; return; }
   if(!trip()){ main.dataset.view='none'; main.innerHTML=`<div class="wrap">${banners()}<div class="empty"><h2>Нет поездки</h2><p>Создай первую поездку: город, даты и кто едет.</p>${S.dbState==='ok'?'<button class="btn primary" data-act="new-trip">Новая поездка</button>':''}</div></div>`; return; }
   ({places:renderPlaces,map:renderMap,plan:renderPlan,trip:renderTrip})[S.tab]();
@@ -427,7 +453,7 @@ function render(){
 function filteredPlaces(){
   const q=S.f.q.trim().toLowerCase();
   let l=tripPlaces().filter(p=>(S.f.cat==='all'||p.category===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
-  const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a)};
+  const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a), near:(a,b)=>(fromMe(a)??1e9)-(fromMe(b)??1e9)||score(b)-score(a)};
   return l.sort(by[S.f.sort]||by.votes);
 }
 function catChips(counts){
@@ -445,7 +471,7 @@ function renderPlaces(){
   const counts={}; tripPlaces().forEach(p=>counts[p.category]=(counts[p.category]||0)+1);
   $('#cats').innerHTML=catChips(counts);
   $('#f2').innerHTML=`<div class="seg" role="group" aria-label="Статус">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div>
-    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option></select>`;
+    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>`;
   renderList();
 }
 function renderList(){
@@ -453,15 +479,17 @@ function renderList(){
   if(!tripPlaces().length){ el.innerHTML=`<div class="empty"><h2>Пока пусто</h2><p>Добавь первое место: название или ссылку из Google Maps. Адрес и точку на карте найдём сами.</p><button class="btn primary" data-act="add">+ Добавить место</button></div>`; return; }
   if(!list.length){ el.innerHTML=`<div class="empty"><p>Под эти фильтры ничего не подходит.</p><button class="btn" data-act="reset-f">Сбросить фильтры</button></div>`; return; }
   el.innerHTML=list.map(cardHTML).join('');
+  if(S.flash&&S.places.some(p=>p.id===S.flash)){ const c=document.getElementById('p-'+S.flash); S.flash=null; if(c){ c.classList.add('flash'); c.scrollIntoView({block:'center'}); } }
 }
 function dayOptions(p){
   const t=trip(); const days=(t.days||[]).slice(); if(p.day&&!days.includes(p.day)) days.push(p.day);
-  return `<option value="">Не в плане</option>`+days.sort().map(d=>`<option value="${d}" ${p.day===d?'selected':''}>${esc(fmtDay(d))}</option>`).join('');
+  return `<option value="">Не в плане</option>`+days.sort().map(d=>`<option value="${esc(d)}" ${p.day===d?'selected':''}>${esc(fmtDay(d))}</option>`).join('');
 }
 function voteButtons(p){ const v=votesOf(p); const my=(p.votes||{})[me()]; return VOTES.map(x=>`<button class="vote v${x.v>0?x.v:'n'}" data-act="vote" data-id="${esc(p.id)}" data-v="${x.v}" aria-pressed="${my===x.v}">${x.label} <b>${v[x.v].length}</b></button>`).join(''); }
 function cardHTML(p){
   const c=CAT[p.category]||CAT.other; const st=statusOf(p); const v=votesOf(p);
-  const facts=[p.price, p.duration?`~${p.duration} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':'', hasPt(p)?'':'нет точки'].filter(Boolean);
+  const far=fromMe(p);
+  const facts=[far!=null?km(far)+' от тебя':'', p.price, dur(p)?`~${dur(p)} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':'', hasPt(p)?'':'нет точки'].filter(Boolean);
   const voters=VOTES.filter(x=>v[x.v].length).map(x=>`${x.label}: ${v[x.v].map(esc).join(', ')}`).join(' · ');
   const link=safeUrl(p.link);
   return `<article class="card" id="p-${esc(p.id)}">
@@ -493,16 +521,16 @@ function renderMap(){
     main.dataset.view='map';
     main.innerHTML=`<div class="map-wrap"><div id="map-slot" style="position:absolute;inset:0"></div>
       <div class="map-top"><select class="sel" id="map-day" aria-label="Что показать"></select><div class="chips" id="map-cats"></div></div>
-      <div class="map-zoom"><button data-act="zin" aria-label="Приблизить">+</button><button data-act="zout" aria-label="Отдалить">−</button><button data-act="fit" aria-label="Показать все точки"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+      <div class="map-zoom"><button data-act="zin" aria-label="Приблизить">+</button><button data-act="zout" aria-label="Отдалить">−</button><button data-act="fit" aria-label="Показать все точки"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button data-act="locate" aria-label="Где я">${LOCATE_SVG}</button></div>
       <div id="map-note"></div><div id="map-card"></div></div>`;
     if(!mapHost){ mapHost=document.createElement('div'); mapHost.className='lhost'; mapHost.id='lmap'; }
     $('#map-slot').appendChild(mapHost);
-    if(!mainMap){ mainMap=new LMap(mapHost); mainMap.onTap=pid=>{ S.mapSel=pid||null; updateMapPins(); renderMapCard(); }; }
+    if(!mainMap){ mainMap=new LMap(mapHost,t.center); mainMap.onTap=pid=>{ S.mapSel=pid||null; updateMapPins(); renderMapCard(); }; }
     setTimeout(()=>mainMap.map.invalidateSize(),0);
     if(mainMap.forTrip!==t.id){ mainMap.forTrip=t.id; mainMap.inited=false; }
   }
   const days=(t.days||[]).slice().sort();
-  $('#map-day').innerHTML=`<option value="all">Все места</option><option value="idea">Только идеи (без дня)</option>`+days.map(d=>`<option value="${d}">${esc(fmtDay(d))} · ${dayStops(d).length}</option>`).join('');
+  $('#map-day').innerHTML=`<option value="all">Все места</option><option value="idea">Только идеи (без дня)</option>`+days.map(d=>`<option value="${esc(d)}">${esc(fmtDay(d))} · ${dayStops(d).length}</option>`).join('');
   if(S.mapDay!=='all'&&S.mapDay!=='idea'&&!days.includes(S.mapDay)) S.mapDay='all';
   $('#map-day').value=S.mapDay;
   $('#map-cats').innerHTML=catChips();
@@ -523,12 +551,13 @@ function renderMapCard(){
   if(!p){ el.innerHTML=''; updateMapNote(); return; }
   const c=CAT[p.category]||CAT.other;
   const near=tripPlaces().filter(x=>x.id!==p.id&&hasPt(x)&&hasPt(p)).map(x=>({x,d:haversine(p,x)})).filter(o=>o.d<=1.2).sort((a,b)=>a.d-b.d).slice(0,4);
+  const far=fromMe(p);
   el.innerHTML=`<div class="map-card"><button class="x" data-act="close-card" aria-label="Закрыть">×</button>
-    <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="ttl"><h3 style="margin:0;font-size:16px;padding-right:24px">${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area),STATUS_L[statusOf(p)],p.addedBy&&esc(p.addedBy)].filter(Boolean).join(' · ')}</div></div></div>
+    <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="ttl"><h3 style="margin:0;font-size:16px;padding-right:24px">${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area),STATUS_L[statusOf(p)],p.addedBy&&esc(p.addedBy),far!=null&&km(far)+' от тебя'].filter(Boolean).join(' · ')}</div></div></div>
     ${p.why?`<p class="why">${esc(p.why)}</p>`:''}
     <div class="votes">${voteButtons(p)}</div>
     ${near.length?`<div class="near">Рядом: ${near.map(o=>`<button data-act="sel" data-id="${esc(o.x.id)}">${esc(o.x.name)}</button> <span>${km(o.d)}</span>`).join(', ')}</div>`:''}
-    <div class="row"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select><a class="btn small" href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div></div>`;
+    <div class="row"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select><a class="btn small primary" href="${esc(goUrl(p,trip().city))}" target="_blank" rel="noopener">Как добраться</a><a class="btn small" href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div></div>`;
   updateMapNote();
 }
 
@@ -541,13 +570,13 @@ function renderPlan(){
   if(!days.length) h+=`<div class="empty"><h2>Дней пока нет</h2><p>Добавь дни поездки, потом раскладывай по ним места из общего списка.</p><button class="btn primary" data-act="add-day">+ Добавить день</button></div>`;
   for(const d of days){
     const st=dayStops(d); let total=0; for(let i=1;i<st.length;i++) if(hasPt(st[i-1])&&hasPt(st[i])) total+=haversine(st[i-1],st[i]);
-    const mins=st.reduce((s,p)=>s+(+p.duration||0),0);
+    const mins=st.reduce((s,p)=>s+dur(p),0);
     const areas=[...new Set(st.map(p=>p.area).filter(Boolean))];
-    const dir=dirUrl(st); const past=d<todayISO();
-    h+=`<section class="day" ${past?'style="opacity:.7"':''}><div class="day-h"><h3>${esc(fmtDay(d,true))}</h3><span class="meta">${st.length} ${plural(st.length,'место','места','мест')}${total?` · ${km(total)} по прямой`:''}${mins?` · ~${Math.round(mins/6)/10} ч`:''}</span>${areas.length?`<span class="sub" style="width:100%">${areas.map(esc).join(', ')}</span>`:''}</div>
-      ${st.length?`<ol class="stops">${st.map((p,i)=>{ const leg=i>0&&hasPt(st[i-1])&&hasPt(p)?haversine(st[i-1],p):null; const c=CAT[p.category]||CAT.other; return `<li class="stop"><span class="num ${p.done?'done':''}">${i+1}</span><div class="nm"><b>${esc(p.name)}</b><span>${c.name}${p.area?' · '+esc(p.area):''}${p.duration?' · ~'+p.duration+' мин':''}${p.booking?' · бронь':''}</span>${leg!=null?`<span class="leg">↑ ${km(leg)} от предыдущего</span>`:''}</div>
+    const dir=dirUrl(st); const today=todayISO(); const when=d<today?'past':d===today?'today':'';
+    h+=`<section class="day ${when}" ${when==='today'?'id="day-today"':''}><div class="day-h"><h3>${esc(fmtDay(d,true))}</h3>${when==='today'?'<span class="today-b">Сегодня</span>':''}<span class="meta">${st.length} ${plural(st.length,'место','места','мест')}${total?` · ${km(total)} по прямой`:''}${mins?` · ~${Math.round(mins/6)/10} ч`:''}</span>${areas.length?`<span class="sub" style="width:100%">${areas.map(esc).join(', ')}</span>`:''}</div>
+      ${st.length?`<ol class="stops">${st.map((p,i)=>{ const leg=i>0&&hasPt(st[i-1])&&hasPt(p)?haversine(st[i-1],p):null; const c=CAT[p.category]||CAT.other; const tag=hasPt(p)?'button':'div'; return `<li class="stop"><span class="num ${p.done?'done':''}">${i+1}</span><${tag} class="nm" ${hasPt(p)?`data-act="show-map" data-id="${esc(p.id)}"`:''}><b>${esc(p.name)}</b><span>${c.name}${p.area?' · '+esc(p.area):''}${dur(p)?' · ~'+dur(p)+' мин':''}${p.booking?' · бронь':''}</span>${leg!=null?`<span class="leg">↑ ${km(leg)} от предыдущего</span>`:''}</${tag}>
         <button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="-1" ${i===0?'disabled':''} aria-label="Выше">↑</button><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="1" ${i===st.length-1?'disabled':''} aria-label="Ниже">↓</button><button class="ico" data-act="unplan" data-id="${esc(p.id)}" aria-label="Убрать из дня">×</button></li>`; }).join('')}</ol>`:`<p class="hint" style="padding:12px">Пока ничего. Добавь места из списка идей.</p>`}
-      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${d}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${d}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">Маршрут в Google Maps</a>`:''}${st.length>2?`<button class="btn small ghost" data-act="sort-day" data-day="${d}">Упорядочить по пути</button>`:''}<span class="spacer"></span><button class="btn small ghost danger" data-act="rm-day" data-day="${d}">Удалить день</button></div></section>`;
+      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${esc(d)}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${esc(d)}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">Маршрут в Google Maps</a>`:''}${st.length>2?`<button class="btn small ghost" data-act="sort-day" data-day="${esc(d)}">Упорядочить по пути</button>`:''}<span class="spacer"></span><button class="btn small ghost danger" data-act="rm-day" data-day="${esc(d)}">Удалить день</button></div></section>`;
   }
   if(days.length) h+=`<div class="row"><button class="btn" data-act="add-day">+ Добавить день</button><span class="hint">Идей без дня: ${ideas}</span></div>`;
   h+=`</div>`; main.innerHTML=h;
@@ -576,7 +605,7 @@ function openSheet(html, onMount){
   if(onMount) onMount(bg.querySelector('.sheet'));
 }
 function closeSheet(){ $('#sheet-root').innerHTML=''; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('.picker')) $('.picker').remove(); else closeSheet(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const pk=$('.picker [data-pk="cancel"]'); if(pk) pk.click(); else closeSheet(); } });
 
 function openMePicker(){
   const t=trip(); if(!t) return;
@@ -592,6 +621,7 @@ function openPlaceForm(p){
   openSheet(`<h2>${isNew?'Новое место':'Изменить место'}</h2>
     <form data-form="place">
       <div class="field"><label for="f-name">Название *</label><input id="f-name" required value="${esc(d.name)}" placeholder="Например, Katz's Delicatessen" autocomplete="off"></div>
+      <div id="f-dup"></div>
       <div class="field"><label for="f-link">Ссылка (Google Maps, сайт, Instagram)</label><input id="f-link" value="${esc(d.link)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off"></div>
       <div class="coord"><div class="st" id="f-pt">${ptText()}</div>
         <button type="button" class="btn small primary" data-fact="find" id="f-find">Найти адрес и точку</button>
@@ -603,7 +633,7 @@ function openPlaceForm(p){
       <div class="field"><label for="f-why">Зачем идти</label><textarea id="f-why" placeholder="Легендарный пастрами, брать сэндвич на двоих">${esc(d.why)}</textarea></div>
       <details class="more" ${d.price||d.duration||d.booking||d.indoor?'open':''}><summary>Подробности: цена, время, бронь</summary>
         <div class="two" style="margin-top:8px"><div class="field"><label for="f-price">Цена</label><select id="f-price">${['','бесплатно','$','$$','$$$'].map(x=>`<option value="${x}" ${d.price===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
-        <div class="field"><label for="f-dur">Сколько времени, мин</label><input id="f-dur" type="number" min="0" step="15" inputmode="numeric" value="${d.duration??''}"></div></div>
+        <div class="field"><label for="f-dur">Сколько времени, мин</label><input id="f-dur" type="number" min="0" step="15" inputmode="numeric" value="${dur(d)||''}"></div></div>
         <label class="check"><input type="checkbox" id="f-book" ${d.booking?'checked':''}> Нужна бронь или билеты</label>
         <label class="check"><input type="checkbox" id="f-indoor" ${d.indoor?'checked':''}> В помещении (подходит на дождь)</label>
       </details>
@@ -612,6 +642,12 @@ function openPlaceForm(p){
     const read=()=>{ d.name=$('#f-name').value.trim(); d.link=$('#f-link').value.trim(); d.area=$('#f-area').value.trim(); d.address=$('#f-addr').value.trim(); d.why=$('#f-why').value.trim(); d.price=$('#f-price').value; d.duration=num($('#f-dur').value); d.booking=$('#f-book').checked; d.indoor=$('#f-indoor').checked; };
     const setPt=()=>{ $('#f-pt').innerHTML=ptText(); $('#f-pick').textContent=hasPt(d)?'Поправить на карте':'Указать на карте'; };
     const note=(t)=>{ $('#f-note').innerHTML=t?`<div class="find-res">${t}</div>`:''; };
+    const dup=()=>{
+      const n=normName($('#f-name').value); const same=m=>m===n||(Math.min(m.length,n.length)>=4&&(m.includes(n)||n.includes(m)));
+      const hit=n.length>=3&&tripPlaces().find(x=>x.id!==d.id&&same(normName(x.name)));
+      $('#f-dup').innerHTML=hit?`<div class="find-res warn">Похоже, уже есть: «${esc(hit.name)}»${hit.addedBy?`, добавил(а) ${esc(hit.addedBy)}`:''}.${isNew?' Можно просто проголосовать за него.':''}</div>`:'';
+    };
+    $('#f-name').addEventListener('input',dup); dup();
     let finding=false;
     async function find(auto){
       read(); const q=d.link||d.name; if(!q){ if(!auto) note('Сначала напиши название или вставь ссылку.'); return; }
@@ -620,7 +656,7 @@ function openPlaceForm(p){
         const r=await findPlace(d.link||'', d.name||'', t.city||'', t.center);
         if(r&&r.lat!=null){
           d.lat=r.lat; d.lng=r.lng; setPt();
-          if(r.name&&!$('#f-name').value.trim()) $('#f-name').value=r.name;
+          if(r.name&&!$('#f-name').value.trim()){ $('#f-name').value=r.name; dup(); }
           if(r.address&&!$('#f-addr').value.trim()) $('#f-addr').value=r.address;
           if(r.area&&!$('#f-area').value.trim()) $('#f-area').value=r.area;
           note(`Нашёл: ${esc(r.address||r.name||'')}. Если точка не та, поправь на карте.`);
@@ -628,7 +664,16 @@ function openPlaceForm(p){
       }catch(e){ note('Поиск сейчас не работает. Поставь точку на карте вручную.'); }
       finally{ finding=false; b.disabled=false; b.textContent='Найти адрес и точку'; }
     }
-    $('#f-link').addEventListener('change',()=>{ const r=parseLink($('#f-link').value); if(r.name&&!$('#f-name').value.trim()) $('#f-name').value=r.name; if(r.lat!=null){ d.lat=r.lat; d.lng=r.lng; setPt(); } if(r.lat==null||!$('#f-addr').value.trim()) find(true); });
+    $('#f-link').addEventListener('change',()=>{ const r=parseLink($('#f-link').value); if(r.name&&!$('#f-name').value.trim()){ $('#f-name').value=r.name; dup(); } if(r.lat!=null){ d.lat=r.lat; d.lng=r.lng; setPt(); } if(r.lat==null||!$('#f-addr').value.trim()) find(true); });
+    // «Поделиться» из Google Maps даёт «Название\nАдрес\nhttps://maps.app.goo.gl/…»; в однострочном поле переносы бы склеились
+    $('#f-link').addEventListener('paste',e=>{
+      const txt=(e.clipboardData&&e.clipboardData.getData('text'))||''; const u=txt.match(/https?:\/\/\S+/); if(!u||txt.trim()===u[0]) return;
+      e.preventDefault(); $('#f-link').value=u[0];
+      const lines=txt.replace(u[0],'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      if(lines[0]&&lines[0].length<80&&!$('#f-name').value.trim()){ $('#f-name').value=lines[0]; dup(); }
+      if(lines[1]&&/\d/.test(lines[1])&&lines[1].length<120&&!$('#f-addr').value.trim()) $('#f-addr').value=lines[1];
+      $('#f-link').dispatchEvent(new Event('change'));
+    });
     sheet.querySelectorAll('[data-fcat]').forEach(b=>b.addEventListener('click',()=>{ d.category=b.dataset.fcat; sheet.querySelectorAll('[data-fcat]').forEach(x=>x.setAttribute('aria-pressed',x===b)); }));
     let delArmed=false;
     sheet.addEventListener('click',async e=>{
@@ -643,9 +688,11 @@ function openPlaceForm(p){
     });
     sheet.querySelector('form').addEventListener('submit', async e=>{
       e.preventDefault(); read(); if(!d.name){ $('#f-name').focus(); return; }
-      const body={tripId:t.id,name:d.name,category:d.category,area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:d.duration,booking:!!d.booking,indoor:!!d.indoor};
+      const body={tripId:t.id,name:d.name,category:d.category,area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:dur(d)||null,booking:!!d.booking,indoor:!!d.indoor};
       closeSheet();
-      if(isNew){ const id=newId('p'); await write(()=>placeRef(id).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),day:'',done:false,order:0,votes:me()?{[me()]:2}:{}}),'Место добавлено'); }
+      if(isNew){ const id=newId('p'); S.flash=id;
+        if(S.f.cat!=='all'&&S.f.cat!==d.category) S.f.cat='all'; if(!['all','idea'].includes(S.f.status)) S.f.status='all'; if(S.f.q){ S.f.q=''; const q=$('#q'); if(q) q.value=''; } // чтобы новое место было видно
+        await write(()=>placeRef(id).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),day:'',done:false,order:0,votes:me()?{[me()]:2}:{}}),'Место добавлено'); }
       else await write(()=>placeRef(p.id).update(body),'Сохранено');
     });
     if(isNew) setTimeout(()=>{ try{$('#f-name').focus()}catch(_){} },50);
@@ -654,14 +701,19 @@ function openPlaceForm(p){
 
 function openPicker(d, done){
   const t=trip(); const el=document.createElement('div'); el.className='picker';
-  el.innerHTML=`<div class="pm"><div class="lhost" id="pick-map"></div><div class="cross"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="6"/><path d="M18 2v10M18 24v10M2 18h10M24 18h10"/></svg></div></div>
+  el.innerHTML=`<div class="pm"><div class="lhost" id="pick-map"></div><div class="cross"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="6"/><path d="M18 2v10M18 24v10M2 18h10M24 18h10"/></svg></div><div class="map-zoom"><button data-pk="me" aria-label="Где я">${LOCATE_SVG}</button></div></div>
     <div class="picker-bar"><p>Двигай карту, чтобы крестик встал на «${esc(d.name||'новое место')}».</p><button class="btn" data-pk="cancel">Отмена</button><button class="btn primary" data-pk="ok">Поставить здесь</button></div>`;
   document.body.appendChild(el);
-  const lm=new LMap(el.querySelector('#pick-map'));
+  const lm=pickMap=new LMap(el.querySelector('#pick-map'),hasPt(d)?d:t.center);
   const others=tripPlaces().filter(p=>hasPt(p)&&p.id!==d.id);
   lm.setPins(others,{dimIds:new Set(others.map(p=>p.id))});
   setTimeout(()=>{ lm.map.invalidateSize(); if(hasPt(d)) lm.map.setView([d.lat,d.lng],16); else lm.home(t.center); },0);
-  el.addEventListener('click',e=>{ const b=e.target.closest('[data-pk]'); if(!b) return; if(b.dataset.pk==='ok'){ const c=lm.map.getCenter(); done({lat:+c.lat.toFixed(6),lng:+c.lng.toFixed(6)}); } lm.map.remove(); el.remove(); });
+  el.addEventListener('click',e=>{
+    const b=e.target.closest('[data-pk]'); if(!b) return;
+    if(b.dataset.pk==='me'){ locate(h=>{ if(pickMap===lm) lm.map.setView([h.lat,h.lng],17); }); return; }
+    if(b.dataset.pk==='ok'){ const c=lm.map.getCenter(); done({lat:+c.lat.toFixed(6),lng:+c.lng.toFixed(6)}); }
+    lm.map.remove(); el.remove(); pickMap=null;
+  });
 }
 
 function openDayPicker(day){
@@ -669,21 +721,22 @@ function openDayPicker(day){
   const cen = pts.length?{lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length}:null;
   const cands=tripPlaces().filter(p=>!p.day&&!p.done).map(p=>({p,d:cen&&hasPt(p)?haversine(cen,p):null})).sort((a,b)=>cen?((a.d??99)-(b.d??99)):(score(b.p)-score(a.p)));
   openSheet(`<h2>${esc(fmtDay(day,true))}</h2><p class="hint" style="margin-bottom:12px">${cen?'Сначала то, что ближе к уже выбранным местам этого дня.':'Сначала самые популярные идеи.'}</p>
-    <div class="pick-list">${cands.length?cands.map(({p,d})=>{const c=CAT[p.category]||CAT.other; return `<button class="pick-item" data-act="plan-add" data-id="${esc(p.id)}" data-day="${day}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="nm">${esc(p.name)}<span>${[p.area&&esc(p.area), 'голоса '+(score(p)>0?'+':'')+score(p), d!=null?km(d)+' от дня':''].filter(Boolean).join(' · ')}</span></div><span class="btn small">Добавить</span></button>`}).join(''):'<p class="hint">Все идеи уже разложены по дням. Добавь новые места во вкладке «Места».</p>'}</div>
+    <div class="pick-list">${cands.length?cands.map(({p,d})=>{const c=CAT[p.category]||CAT.other; return `<button class="pick-item" data-act="plan-add" data-id="${esc(p.id)}" data-day="${esc(day)}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="nm">${esc(p.name)}<span>${[p.area&&esc(p.area), 'голоса '+(score(p)>0?'+':'')+score(p), d!=null?km(d)+' от дня':''].filter(Boolean).join(' · ')}</span></div><span class="btn small">Добавить</span></button>`}).join(''):'<p class="hint">Все идеи уже разложены по дням. Добавь новые места во вкладке «Места».</p>'}</div>
     <div class="sheet-actions"><button class="btn ghost" data-act="close-sheet">Готово</button></div>`);
 }
 function openAddDay(){
   const t=trip(); const days=(t.days||[]).slice().sort(); const def=days.length?addDays(days[days.length-1],1):todayISO();
-  openSheet(`<h2>Добавить день</h2><form data-form="add-day"><div class="field"><label for="d-date">Дата</label><input id="d-date" type="date" value="${def}" required></div><div class="sheet-actions"><button class="btn primary" type="submit">Добавить</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
+  openSheet(`<h2>Добавить день</h2><form data-form="add-day"><div class="field"><label for="d-date">Дата</label><input id="d-date" type="date" value="${esc(def)}" required></div><div class="sheet-actions"><button class="btn primary" type="submit">Добавить</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
 }
 function openTripForm(existing){
   const t=existing; const cur=trip(); const days=t?(t.days||[]).slice().sort():[];
   openSheet(`<h2>${t?'Поездка':'Новая поездка'}</h2><form data-form="trip" data-id="${t?esc(t.id):''}">
     <div class="field"><label for="t-name">Название *</label><input id="t-name" required value="${esc(t?t.name:'')}" placeholder="Чикаго, весна" autocomplete="off"></div>
     <div class="field"><label for="t-city">Город</label><input id="t-city" value="${esc(t?t.city:'')}" placeholder="Чикаго" autocomplete="off"></div>
-    <div class="two"><div class="field"><label for="t-start">Первый день</label><input id="t-start" type="date" value="${days[0]||''}"></div><div class="field"><label for="t-end">Последний день</label><input id="t-end" type="date" value="${days[days.length-1]||''}"></div></div>
+    <div class="two"><div class="field"><label for="t-start">Первый день</label><input id="t-start" type="date" value="${esc(days[0]||'')}"></div><div class="field"><label for="t-end">Последний день</label><input id="t-end" type="date" value="${esc(days[days.length-1]||'')}"></div></div>
     ${t?'':`<label class="check"><input type="checkbox" id="t-copy" ${cur?'checked':''}> Взять участников из «${esc(cur?cur.name:'')}»</label>`}
-    <div class="sheet-actions"><button class="btn primary" type="submit">${t?'Сохранить':'Создать'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
+    <div class="sheet-actions"><button class="btn primary" type="submit">${t?'Сохранить':'Создать'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`,
+    sheet=>{ const f=sheet.querySelector('form'); f.dataset.s0=$('#t-start').value; f.dataset.e0=$('#t-end').value; }); // что реально показано в полях, чтобы понять, меняли ли даты
 }
 
 /* ---------- actions ---------- */
@@ -691,33 +744,39 @@ document.addEventListener('click', async e=>{
   const a=e.target.closest('[data-act]'); if(!a) return; const act=a.dataset.act; const id=a.dataset.id;
   const t=trip();
   switch(act){
-    case 'tab': S.tab=a.dataset.tab; render(); break;
+    case 'tab': {
+      const main=$('#main'), prev=S.tab; S.scroll[prev]=main.scrollTop; S.tab=a.dataset.tab; render();
+      if(S.tab==='plan'&&prev!=='plan'){ const td=$('#day-today'); if(td) td.scrollIntoView({block:'start'}); else main.scrollTop=0; }
+      else if(S.tab!==prev) main.scrollTop=S.scroll[S.tab]||0;
+      break; }
     case 'pick-me': openMePicker(); break;
     case 'set-me': LS.set('me:'+S.tripId,a.dataset.name); closeSheet(); render(); break;
     case 'add': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openPlaceForm(null); break;
-    case 'edit': openPlaceForm(tripPlaces().find(p=>p.id===id)); break;
+    case 'edit': { const p=tripPlaces().find(x=>x.id===id); if(p) openPlaceForm(p); else toast('Это место уже удалили'); break; }
     case 'cat': S.f.cat=a.dataset.cat; render(); break;
     case 'status': S.f.status=a.dataset.st; render(); break;
     case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:''}; const q=$('#q'); if(q) q.value=''; render(); break; }
     case 'vote': {
       const m=me(); if(!m){ openMePicker(); return; }
-      const p=tripPlaces().find(x=>x.id===id); const cur=(p.votes||{})[m]; const v=+a.dataset.v;
+      const p=tripPlaces().find(x=>x.id===id); if(!p) return; const cur=(p.votes||{})[m]; const v=+a.dataset.v;
       await write(()=>placeRef(id).update({votes:{[m]:cur===v?0:v}})); break; }
-    case 'done': { const p=tripPlaces().find(x=>x.id===id); await write(()=>placeRef(id).update({done:!p.done})); break; }
-    case 'show-map': S.tab='map'; S.mapSel=id; S.mapDay='all'; S.f.cat='all'; render(); { const p=tripPlaces().find(x=>x.id===id); if(p) mainMap.focus(p); } break;
+    case 'done': { const p=tripPlaces().find(x=>x.id===id); if(p) await write(()=>placeRef(id).update({done:!p.done})); break; }
+    case 'show-map': { const p=tripPlaces().find(x=>x.id===id); if(!p) return;
+      S.scroll[S.tab]=$('#main').scrollTop; S.mapDay=S.tab==='plan'&&p.day?p.day:'all'; S.tab='map'; S.mapSel=id; S.f.cat='all'; render(); mainMap.focus(p); break; }
+    case 'locate': if(!S.here) toast('Определяю, где ты…'); locate(h=>{ if(mainMap&&S.tab==='map') mainMap.map.setView([h.lat,h.lng],Math.max(mainMap.map.getZoom()||15,15)); }); break;
     case 'sel': S.mapSel=id; { const p=tripPlaces().find(x=>x.id===id); if(p) mainMap.focus(p); } updateMapPins(); renderMapCard(); break;
     case 'close-card': S.mapSel=null; updateMapPins(); renderMapCard(); break;
     case 'zin': mainMap.map.zoomIn(); break;
     case 'zout': mainMap.map.zoomOut(); break;
     case 'fit': mainMap.fit(mapList(),t.center); break;
-    case 'day-map': S.tab='map'; S.mapDay=a.dataset.day; S.mapSel=null; render(); mainMap.fit(dayStops(a.dataset.day),t.center); break;
+    case 'day-map': S.scroll[S.tab]=$('#main').scrollTop; S.tab='map'; S.mapDay=a.dataset.day; S.mapSel=null; render(); mainMap.fit(dayStops(a.dataset.day),t.center); break;
     case 'add-day': openAddDay(); break;
     case 'add-to-day': openDayPicker(a.dataset.day); break;
     case 'plan-add': { const d=a.dataset.day; const order=dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1; a.closest('.pick-item').remove(); await write(()=>placeRef(id).update({day:d,order})); break; }
     case 'close-sheet': closeSheet(); break;
     case 'unplan': await write(()=>placeRef(id).update({day:''})); break;
     case 'mv': {
-      const p=tripPlaces().find(x=>x.id===id); const st=dayStops(p.day); const i=st.findIndex(x=>x.id===id); const j=i+(+a.dataset.dir); if(j<0||j>=st.length) return;
+      const p=tripPlaces().find(x=>x.id===id); if(!p||!p.day) return; const st=dayStops(p.day); const i=st.findIndex(x=>x.id===id); const j=i+(+a.dataset.dir); if(j<0||j>=st.length) return;
       const arr=st.slice(); [arr[i],arr[j]]=[arr[j],arr[i]];
       await reorder(arr); break; }
     case 'sort-day': {
@@ -727,8 +786,8 @@ document.addEventListener('click', async e=>{
       await reorder(route.concat(without)); toast('Порядок пересобран от первого места'); break; }
     case 'rm-day': {
       const d=a.dataset.day; if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно удалить?'; return; }
-      for(const p of dayStops(d)){ if(!await write(()=>placeRef(p.id).update({day:''}))) return; }
-      await write(()=>tripRef(t.id).update({days:(t.days||[]).filter(x=>x!==d)}),'День удалён'); break; }
+      const ops=dayStops(d).map(p=>['places',p.id,{day:''}]); ops.push(['trips',t.id,{days:(t.days||[]).filter(x=>x!==d)}]);
+      await write(()=>batch(ops),'День удалён'); break; }
     case 'edit-trip': openTripForm(t); break;
     case 'new-trip': openTripForm(null); break;
     case 'switch-trip': S.tripId=id; LS.set('trip',id); S.mapSel=null; S.mapDay='all'; S.askedMe=false; S.tab='places'; render(); break;
@@ -737,23 +796,28 @@ document.addEventListener('click', async e=>{
       S.confirmMember=null; await write(()=>tripRef(t.id).update({members:(t.members||[]).filter(x=>x!==n)})); break; }
   }
 });
-async function reorder(arr){ for(let k=0;k<arr.length;k++){ if((arr[k].order??-1)!==k+1){ const ok=await write(()=>placeRef(arr[k].id).update({order:k+1})); if(!ok) break; } } }
+async function reorder(arr){ const ops=arr.map((p,k)=>['places',p.id,{order:k+1}]).filter((o,k)=>(arr[k].order??-1)!==k+1); if(ops.length) await write(()=>batch(ops)); }
 document.addEventListener('change', async e=>{
-  const el=e.target;
+  const el=e.target; if(el.tagName==='SELECT') el.blur(); // см. softRender
   if(el.matches('[data-act="set-day"]')){ const d=el.value; const order=d?dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1:0; await write(()=>placeRef(el.dataset.id).update({day:d,order})); }
-  if(el.id==='sort'){ S.f.sort=el.value; renderList(); }
+  if(el.id==='sort'){ S.f.sort=el.value; if(el.value==='near'&&!S.here){ toast('Определяю, где ты…'); locate(); } renderList(); }
   if(el.id==='map-day'){ S.mapDay=el.value; S.mapSel=null; updateMapPins(); renderMapCard(); if(S.mapDay!=='all') mainMap.fit(mapList(),trip().center); }
 });
 document.addEventListener('input', e=>{ if(e.target.id==='q'){ S.f.q=e.target.value; renderList(); } });
 document.addEventListener('submit', async e=>{
   const f=e.target; const kind=f.dataset.form; if(!kind||kind==='place') return; e.preventDefault(); const t=trip();
-  if(kind==='add-member'){ const n=$('#new-member').value.trim(); if(!n) return; if((t.members||[]).includes(n)){ toast('Такой участник уже есть'); return; } $('#new-member').value=''; await write(()=>tripRef(t.id).update({members:[...(t.members||[]),n]})); }
+  if(kind==='add-member'){ const n=$('#new-member').value.trim(); if(!n) return; if((t.members||[]).some(x=>x.toLowerCase()===n.toLowerCase())){ toast('Такой участник уже есть'); return; } $('#new-member').value=''; await write(()=>tripRef(t.id).update({members:[...(t.members||[]),n]})); }
   if(kind==='add-day'){ const d=$('#d-date').value; if(!d) return; if((t.days||[]).includes(d)){ toast('Этот день уже есть'); return; } closeSheet(); await write(()=>tripRef(t.id).update({days:[...(t.days||[]),d].sort()}),'День добавлен'); }
   if(kind==='trip'){
     const name=$('#t-name').value.trim(), city=$('#t-city').value.trim(), s=$('#t-start').value, en=$('#t-end').value; if(!name) return;
     let range=[]; if(s){ const end=en&&en>=s?en:s; for(let d=s, i=0; d<=end&&i<60; d=addDays(d,1), i++) range.push(d); }
-    let center=null; if(city){ try{ const r=await findPlace('','',city,null); if(r&&r.lat!=null) center={lat:r.lat,lng:r.lng}; }catch(_){} }
-    if(f.dataset.id){ const ex=S.trips.find(x=>x.id===f.dataset.id); const days=[...new Set([...(ex.days||[]),...range])].sort(); closeSheet(); await write(()=>tripRef(ex.id).update({name,city,days,...(center&&city!==ex.city?{center}:{})}),'Сохранено'); }
+    const ex=f.dataset.id?S.trips.find(x=>x.id===f.dataset.id):null;
+    const sb=f.querySelector('[type=submit]'); sb.disabled=true; sb.textContent='Сохраняю…';
+    const center=city&&(!ex||city!==ex.city)?await findCity(city):null;
+    if(ex){
+      // Даты трогаем, только если их правда поменяли; дни, где уже есть места, не выкидываем
+      let days=ex.days||[]; if(s!==f.dataset.s0||en!==f.dataset.e0){ const used=new Set(S.places.filter(p=>p.tripId===ex.id&&p.day).map(p=>p.day)); days=[...new Set([...range,...days.filter(d=>used.has(d))])].sort(); }
+      closeSheet(); await write(()=>tripRef(ex.id).update({name,city,days,...(center?{center}:{})}),'Сохранено'); }
     else{
       const nid=newId('t'); const copy=$('#t-copy')&&$('#t-copy').checked&&t; const members=copy?(t.members||[]).slice():[];
       closeSheet();
@@ -768,13 +832,19 @@ function pickTrip(){
   if(S.trips.some(t=>t.id===S.tripId)) return;
   const sorted=S.trips.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); S.tripId=sorted[0]?sorted[0].id:null;
 }
+// iOS приближает страницу при тапе в поле со шрифтом меньше 16px. maximum-scale это отключает, а щипком масштабировать iOS всё равно даёт.
+if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)){ const v=$('meta[name=viewport]'); if(v) v.content+=', maximum-scale=1'; }
+addEventListener('online',()=>{ S.offline=false; renderTop(); });
+addEventListener('offline',()=>{ S.offline=true; renderTop(); });
 render();
 if(!FS){ S.dbState='none'; render(); }
 else{
   const err=e=>{ console.error(e); S.dbState='error'; render(); };
   let seeded=false;
   FS.collection('trips').onSnapshot(s=>{
-    S.trips=s.docs.map(d=>({id:d.id,...d.data()})); S.loaded.trips=true;
+    S.trips=s.docs.map(d=>({id:d.id,...d.data()}));
+    S.loaded.trips=S.loaded.trips||S.trips.length>0||!s.metadata.fromCache; // пустой кэш при первом заходе ещё не значит «поездок нет»
+    if(!S.loaded.trips) return;
     if(!S.trips.length&&!s.metadata.fromCache&&!seeded){ seeded=true; FS.collection('trips').doc(SEED_TRIP.id).set(SEED_TRIP.data).catch(err); }
     pickTrip(); if(S.loaded.places){ S.dbState='ok'; softRender(); }
   }, err);
