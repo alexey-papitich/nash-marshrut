@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Nash marshrut: friends use it by link, without sign-in.
+    match /trips/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.name is string
+        && request.resource.data.name.size() < 120
+        && request.resource.data.members is list
+        && request.resource.data.members.size() < 60;
+      allow delete: if false;
+    }
+    match /places/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.tripId is string
+        && request.resource.data.name is string
+        && request.resource.data.name.size() < 200
+        && request.resource.data.keys().size() < 30;
+      allow delete: if true;
+    }
+  }
+}

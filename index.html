@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d6a48">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230d6a48%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22Arial%22 font-weight=%22bold%22%3EМ%3C/text%3E%3C/svg%3E">
+<title>Наш маршрут</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Oswald:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+html,body{margin:0}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* Layout: one-screen phone app — street-sign header, scrolling body, tab bar; map tab is full-bleed. */
+:root{
+  --bg:#f2f3ef; --surface:#ffffff; --surface-2:#e7eae4; --fg:#17201b; --muted:#5a665f; --line:#d3d8d1;
+  --accent:#0d6a48; --accent-2:#0a5539; --accent-fg:#ffffff; --taxi:#f2b705; --taxi-fg:#1d1a0b; --danger:#b3261e;
+  --water:#cbdbe2; --land:#f8f7f2; --land-line:#aeb6ad; --park:#cfe3c4; --label:#6f7a73; --shadow:0 6px 24px rgba(20,30,25,.14);
+  --c-food:#ee352e; --c-coffee:#8a5a2b; --c-bars:#b933ad; --c-museum:#0039a6; --c-view:#ff6319; --c-walk:#00933c; --c-shop:#fccc0a; --c-other:#7d8580;
+  --f-display:"Oswald","Arial Narrow","Roboto Condensed",sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:12px; --gut-l:max(16px, env(safe-area-inset-left, 0px)); --gut-r:max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111513; --surface:#1a1f1c; --surface-2:#232a26; --fg:#e5ebe6; --muted:#98a49d; --line:#313a35;
+  --accent:#36a97b; --accent-2:#2c8f67; --accent-fg:#06120c; --taxi:#f5c43a; --taxi-fg:#1d1a0b; --danger:#ef7d74;
+  --water:#142229; --land:#1e2421; --land-line:#3b4540; --park:#21382a; --label:#8b978f; --shadow:0 6px 24px rgba(0,0,0,.45);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#111513; --surface:#1a1f1c; --surface-2:#232a26; --fg:#e5ebe6; --muted:#98a49d; --line:#313a35;
+  --accent:#36a97b; --accent-2:#2c8f67; --accent-fg:#06120c; --taxi:#f5c43a; --taxi-fg:#1d1a0b; --danger:#ef7d74;
+  --water:#142229; --land:#1e2421; --land-line:#3b4540; --park:#21382a; --label:#8b978f; --shadow:0 6px 24px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body);-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:flex;flex-direction:column;min-height:0}
+
+/* Header: street sign */
+.top{flex:none;background:var(--bg);padding-top:10px;padding-bottom:8px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;gap:10px;align-items:center}
+.sign{flex:1;min-width:0;background:#0d6a48;color:#fff;border-radius:8px;padding:3px}
+.sign-in{border:2px solid rgba(255,255,255,.92);border-radius:6px;padding:4px 10px 5px;display:flex;align-items:baseline;gap:10px;min-width:0}
+.trip-name{font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:.04em;text-transform:uppercase;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-meta{font-family:var(--f-mono);font-size:11px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-weight:500;font-size:14px;max-width:40vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me small{color:var(--muted);font-weight:400}
+
+main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative}
+.wrap{max-width:760px;margin:0 auto;padding-left:var(--gut-l);padding-right:var(--gut-r);padding-block:6px 28px}
+
+/* Tab bar */
+.tabs{flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface);padding-left:var(--gut-l);padding-right:var(--gut-r)}
+.tab{background:none;border:0;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:12px;font-weight:500}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--accent)}
+
+/* Banners, buttons */
+.banner{margin:8px 0;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
+.banner.warn{border-left:4px solid var(--taxi)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:14px;line-height:1.2}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:transparent}
+.btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--line))}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+
+/* Category bullet (subway-style) */
+.bullet{flex:none;width:28px;height:28px;border-radius:50%;background:var(--b);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1}
+.bullet.dark{color:#1d1a0b}
+.bullet.sm{width:20px;height:20px;font-size:11px}
+
+/* Places toolbar & filters */
+.toolbar{display:flex;gap:8px;margin:6px 0 10px}
+.search{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 10px 5px 6px;font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.nobullet{padding-left:10px}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface));font-weight:500}
+.chip .n{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.filters2{display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 10px;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--fg);font-weight:500}
+select.sel{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;font-size:13px;max-width:100%}
+
+/* Place card */
+.list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.flash{animation:flash 1.4s ease}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.card-h{display:flex;gap:10px;align-items:flex-start}
+.card-h .ttl{flex:1;min-width:0}
+.card h3{margin:0;font-size:16px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.sub{color:var(--muted);font-size:13px}
+.status{flex:none;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:6px;background:var(--surface-2);color:var(--muted)}
+.status.planned{background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
+.status.done{background:var(--fg);color:var(--bg)}
+.why{margin:0;font-size:14px;overflow-wrap:anywhere}
+.facts{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.votes{display:flex;gap:6px;flex-wrap:wrap}
+.vote{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.vote b{font-family:var(--f-mono);font-weight:500;font-size:12px;color:var(--muted)}
+.vote[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.vote.v2[aria-pressed="true"]{border-color:var(--taxi);background:color-mix(in srgb,var(--taxi) 28%,var(--surface))}
+.voters{font-size:12px;color:var(--muted);width:100%}
+.card-f{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--line);padding-top:8px}
+.card-f a{color:var(--accent);font-size:13px;font-weight:500;text-decoration:none;padding:4px 2px}
+.score{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+
+.empty{text-align:center;padding:40px 12px;color:var(--muted)}
+.empty h2{font-family:var(--f-display);color:var(--fg);font-weight:500;letter-spacing:.03em;font-size:22px;margin:0 0 6px;text-transform:uppercase}
+.empty p{margin:0 auto 14px;max-width:34ch}
+
+/* Map */
+.map-wrap{position:absolute;inset:0}
+.mapbox{position:absolute;inset:0;overflow:hidden;background:var(--water)}
+.mapbox svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.mapbox .water{fill:var(--water)}
+.mapbox .land path{fill:var(--land);stroke:var(--land-line);stroke-width:1;vector-effect:non-scaling-stroke}
+.mapbox .park{fill:var(--park)}
+.mapbox .grid line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.mapbox .lbl{fill:var(--label);font-family:var(--f-body);font-size:11px;text-anchor:middle;pointer-events:none}
+.mapbox .lbl.boro{font-family:var(--f-display);font-size:15px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;opacity:.75}
+.mapbox .lbl.water-l{font-style:italic;fill:color-mix(in srgb,var(--label) 70%,var(--water))}
+.mapbox .route polyline{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;opacity:.8}
+.mapbox .pin{cursor:pointer}
+.mapbox .pin circle{stroke:var(--surface);stroke-width:2.2}
+.mapbox .pin text{fill:#fff;font-family:var(--f-display);font-weight:600;font-size:12px;text-anchor:middle;pointer-events:none}
+.mapbox .pin.dark text{fill:#1d1a0b}
+.mapbox .pin.dim{opacity:.35}
+.mapbox .pin.sel circle{stroke:var(--fg);stroke-width:3}
+.mapbox .pin .halo{fill:var(--taxi);stroke:none;opacity:.9}
+.scalebar{position:absolute;left:calc(var(--gut-l) + 0px);bottom:10px;font-family:var(--f-mono);font-size:11px;color:var(--fg);pointer-events:none}
+.scalebar i{display:block;height:6px;border:2px solid var(--fg);border-top:0;margin-bottom:2px}
+.map-top{position:absolute;top:8px;left:0;right:0;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.map-top>*{pointer-events:auto}
+.map-top .chips .chip{box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.map-top select{align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.map-zoom{position:absolute;right:calc(var(--gut-r));top:96px;display:flex;flex-direction:column;gap:6px}
+.map-zoom button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:20px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.12);display:grid;place-items:center}
+.map-zoom svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.map-note{position:absolute;right:var(--gut-r);bottom:10px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.map-card{position:absolute;left:var(--gut-l);right:var(--gut-r);bottom:10px;max-width:520px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;max-height:60%;overflow:auto}
+.map-card .x{position:absolute;right:6px;top:6px;border:0;background:none;font-size:20px;color:var(--muted);width:32px;height:32px}
+.near{font-size:13px;color:var(--muted)}
+.near button{border:0;background:none;color:var(--accent);padding:0;font-size:13px;text-decoration:underline;text-underline-offset:2px}
+
+/* Plan */
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.day-h{display:flex;align-items:baseline;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.day-h h3{margin:0;font-family:var(--f-display);font-weight:500;font-size:19px;letter-spacing:.03em;text-transform:uppercase}
+.day-h .meta{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.stops{list-style:none;margin:0;padding:0}
+.stop{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line)}
+.stop:last-child{border-bottom:0}
+.stop .num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:13px}
+.stop .num.done{background:var(--muted)}
+.stop .nm{flex:1;min-width:0}
+.stop .nm b{font-weight:500;display:block;overflow-wrap:anywhere}
+.stop .nm span{font-size:12px;color:var(--muted)}
+.stop .leg{display:block;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.ico{border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:14px;flex:none}
+.ico:disabled{opacity:.35}
+.day-f{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;background:var(--surface-2)}
+.section-t{font-family:var(--f-display);font-weight:500;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+
+/* Trip */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.panel h2{margin:0;font-family:var(--f-display);font-weight:500;font-size:18px;letter-spacing:.05em;text-transform:uppercase}
+.people{display:flex;flex-wrap:wrap;gap:6px}
+.person{border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;display:inline-flex;align-items:center;gap:4px;font-size:14px;background:var(--surface)}
+.person.me-p{border-color:var(--accent);font-weight:500}
+.person button{border:0;background:none;width:24px;height:24px;border-radius:50%;color:var(--muted);font-size:15px}
+.person.confirm{border-color:var(--danger);color:var(--danger)}
+.person.confirm button{color:var(--danger)}
+.trips-l{display:flex;flex-direction:column;gap:6px}
+.trip-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);text-align:left;width:100%}
+.trip-row[aria-current="true"]{border-color:var(--accent)}
+.trip-row b{font-weight:500}
+.trip-row span{color:var(--muted);font-size:12px;font-family:var(--f-mono)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+/* Sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(10,15,12,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:620px;max-height:92%;overflow:auto;border-radius:16px 16px 0 0;padding-top:14px;padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));padding-left:var(--gut-l);padding-right:var(--gut-r);box-shadow:var(--shadow)}
+@media (min-width:700px){.sheet-bg{align-items:center}.sheet{border-radius:16px;max-height:88%}}
+.sheet h2{margin:0 0 12px;font-family:var(--f-display);font-weight:500;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label,.lab{font-size:13px;font-weight:500;color:var(--muted)}
+.field input,.field textarea,.field select{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;width:100%;min-width:0}
+.field textarea{min-height:64px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two .field{min-width:0}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:8px}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.coord{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:12px}
+.coord .st{flex:1;min-width:140px;font-size:13px}
+.coord .st code{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.ai-note{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+details.more{margin-bottom:12px}
+details.more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--accent);padding:4px 0}
+.pick-list{display:flex;flex-direction:column;gap:6px}
+.pick-item{display:flex;gap:10px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 10px;text-align:left;width:100%}
+.pick-item .nm{flex:1;min-width:0}
+.pick-item .nm span{display:block;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+
+/* Picker overlay */
+.picker{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
+.picker .pm{position:relative;flex:1;min-height:0}
+.cross{position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;pointer-events:none}
+.cross svg{width:100%;height:100%;stroke:var(--danger);stroke-width:2.5;fill:none}
+.picker-bar{padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--surface)}
+.picker-bar p{flex:1;min-width:180px;margin:0;font-size:13px;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion: reduce){.card.flash{animation:none}}
+
+/* Leaflet map */
+#lmap,.lhost{position:absolute;inset:0;background:var(--water)}
+.leaflet-container{font-family:var(--f-body);background:var(--water)}
+.lpin{background:none;border:0}
+.lpin .bullet{width:26px;height:26px;font-size:14px;border:2px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.lpin .bullet.hot{box-shadow:0 0 0 3px var(--taxi),0 1px 4px rgba(0,0,0,.35)}
+.lpin .bullet.sel{transform:scale(1.3);border-color:var(--fg)}
+.lpin .bullet.dim{opacity:.4}
+.leaflet-control-attribution{font-size:10px}
+.map-top{z-index:500}.map-zoom{z-index:500}.map-note{z-index:500}.map-card{z-index:600}
+.cross{z-index:500}
+.find-res{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top" id="top"></header>
+  <main id="main"></main>
+  <nav class="tabs" id="tabs" aria-label="Разделы"></nav>
+</div>
+<div id="sheet-root"></div>
+<script>
+"use strict";
+const CATS = [
+  {id:'food',name:'Еда',l:'Е',c:'var(--c-food)'},
+  {id:'coffee',name:'Кофе',l:'К',c:'var(--c-coffee)'},
+  {id:'bars',name:'Бары',l:'Б',c:'var(--c-bars)'},
+  {id:'museum',name:'Музеи',l:'М',c:'var(--c-museum)'},
+  {id:'view',name:'Виды',l:'В',c:'var(--c-view)'},
+  {id:'walk',name:'Прогулки',l:'П',c:'var(--c-walk)'},
+  {id:'shop',name:'Шопинг',l:'Ш',c:'var(--c-shop)',dark:true},
+  {id:'other',name:'Другое',l:'Д',c:'var(--c-other)'}
+];
+const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
+const VOTES = [{v:2,label:'Очень хочу'},{v:1,label:'Можно'},{v:-1,label:'Пропущу'}];
+
+/* ---------- helpers ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const num = v => (v===''||v==null||isNaN(+v)) ? null : +v;
+function safeUrl(u){ try{ const x=new URL(String(u).trim()); return /^https?:$/.test(x.protocol)?x.href:null }catch(e){ return null } }
+function haversine(a,b){ const R=6371, t=Math.PI/180; const dLat=(b.lat-a.lat)*t, dLng=(b.lng-a.lng)*t; const s=Math.sin(dLat/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
+const hasPt = p => p && typeof p.lat==='number' && typeof p.lng==='number' && !isNaN(p.lat) && !isNaN(p.lng);
+function km(d){ return d<1 ? Math.round(d*1000/10)*10+' м' : d.toFixed(1).replace('.',',')+' км'; }
+function fmtDay(d,long){ if(!d) return ''; const dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('ru-RU', long?{weekday:'long',day:'numeric',month:'long'}:{weekday:'short',day:'numeric',month:'short'}); }
+function addDays(d,n){ const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+function todayISO(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function votesOf(p){ const v=p.votes||{}; const r={2:[],1:[],'-1':[]}; for(const [n,x] of Object.entries(v)){ if(r[x]) r[x].push(n); } return r; }
+function score(p){ const r=votesOf(p); return r[2].length*2+r[1].length-r[-1].length; }
+function statusOf(p){ return p.done?'done':(p.day?'planned':'idea'); }
+const STATUS_L = {idea:'Идея',planned:'В плане',done:'Были'};
+function gmUrl(p,city){ const q = p.address ? `${p.name}, ${p.address}` : (hasPt(p)?`${p.lat},${p.lng}`:`${p.name}, ${city||''}`); return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+function dirUrl(list){ const pts=list.filter(hasPt); if(pts.length<2) return null; const f=p=>`${p.lat},${p.lng}`; const mid=pts.slice(1,-1).slice(0,8).map(f).join('|'); return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(f(pts[0]))+'&destination='+encodeURIComponent(f(pts[pts.length-1]))+(mid?'&waypoints='+encodeURIComponent(mid):''); }
+function parseLink(link){
+  const s=String(link||''); let m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/[?&](?:q|query|ll|destination|center)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i) || s.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
+  const out={}; if(m){ const lat=+m[1], lng=+m[2]; if(Math.abs(lat)<=90&&Math.abs(lng)<=180){ out.lat=lat; out.lng=lng; } }
+  const n = s.match(/\/maps\/place\/([^/@?]+)/); if(n){ try{ out.name=decodeURIComponent(n[1].replace(/\+/g,' ')); }catch(e){} }
+  return out;
+}
+function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
+function deepMerge(o,patch){ const r={...(o||{})}; for(const k in patch){ const v=patch[k]; if(v&&typeof v==='object'&&!Array.isArray(v)&&r[k]&&typeof r[k]==='object'&&!Array.isArray(r[k])) r[k]=deepMerge(r[k],v); else r[k]=v; } return r; }
+const newId = p => p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyCwdddfqEoJ8mByhy35FIRTV0uqo-o89kU",
+  authDomain: "nash-marshrut.firebaseapp.com",
+  projectId: "nash-marshrut",
+  storageBucket: "nash-marshrut.firebasestorage.app",
+  messagingSenderId: "375493922120",
+  appId: "1:375493922120:web:88285961179b686396377d"
+};
+let FS=null;
+try{ firebase.initializeApp(firebaseConfig); FS=firebase.firestore(); try{ FS.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(_){} }catch(e){ console.error(e); }
+const SEED_TRIP = {id:'nyc-2026', data:{name:'Нью-Йорк',city:'Нью-Йорк',members:['Алексей','Никита','Аня','Паша','Артем','Оля','Алина','София'],days:['2026-10-24','2026-10-25','2026-10-26','2026-10-27','2026-10-28'],center:{lat:40.742,lng:-73.975},createdAt:'2026-10-24T05:30:00.000Z'}};
+
+/* ---------- state ---------- */
+const S = {
+  dbState:'loading', trips:[], places:[], loaded:{trips:false,places:false},
+  tripId: LS.get('trip',null), tab:'places',
+  f:{cat:'all',status:'all',sort:'votes',q:''},
+  mapDay:'all', mapSel:null, confirmMember:null
+};
+const trip = () => S.trips.find(t=>t.id===S.tripId) || null;
+const tripPlaces = () => S.places.filter(p=>p.tripId===S.tripId);
+const me = () => { const t=trip(); const n=t?LS.get('me:'+t.id,null):null; return (t&&n&&(t.members||[]).includes(n))?n:null; };
+
+/* ---------- writes ---------- */
+function flatten(obj,prefix,out){ out=out||[]; prefix=prefix||[]; for(const k of Object.keys(obj)){ const v=obj[k]; if(v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length) flatten(v,prefix.concat(k),out); else out.push(new firebase.firestore.FieldPath(...prefix.concat(k)), v); } return out; }
+const ref=(col,id)=>{ const d=FS.collection(col).doc(id); return { set:data=>d.set(data), update:data=>{ const a=flatten(data); return d.update(a[0],a[1],...a.slice(2)); }, delete:()=>d.delete() }; };
+const placeRef=id=>ref('places',id), tripRef=id=>ref('trips',id);
+async function write(fn, okMsg){
+  if(!FS){ toast('Нет связи с базой'); return false; }
+  try{ await fn(); if(okMsg) toast(okMsg); return true; }
+  catch(e){ console.error(e); toast(e&&e.code==='permission-denied'?'База пока закрыта для записи. Владелец должен опубликовать правила.':'Не сохранилось. Проверь интернет и попробуй ещё раз.'); return false; }
+}
+function softRender(){
+  if(S.tab==='places'&&$('#main').dataset.view==='places'&&document.activeElement&&document.activeElement.id==='q'){
+    renderTop(); const c={}; tripPlaces().forEach(p=>c[p.category]=(c[p.category]||0)+1); $('#cats').innerHTML=catChips(c); renderList(); return;
+  }
+  if(document.querySelector('.sheet-bg [data-form="place"]')||document.querySelector('.picker')){ renderTop(); return; } // don't disturb an open form
+  render();
+}
+
+/* ---------- place search (OpenStreetMap) ---------- */
+async function findPlace(link,name,city,center){
+  const out={}; const pl=parseLink(link); Object.assign(out,pl);
+  const what=out.name||name||'';
+  if(/goo\.gl|maps\.app/.test(link||'')&&out.lat==null&&!what) return {short:true};
+  const q = what ? (city&&!new RegExp(city,'i').test(what)?what+', '+city:what) : (out.lat==null?city:'');
+  try{
+    let url;
+    if(q){ url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&accept-language=en&q='+encodeURIComponent(q);
+      if(center&&center.lat!=null) url+=`&viewbox=${center.lng-0.5},${center.lat+0.4},${center.lng+0.5},${center.lat-0.4}`; }
+    else if(out.lat!=null) url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=en&lat=${out.lat}&lon=${out.lng}`;
+    if(url){
+      const r=await fetch(url); const j=await r.json(); const a=Array.isArray(j)?j[0]:j;
+      if(a&&a.lat){
+        if(out.lat==null){ out.lat=+a.lat; out.lng=+a.lon; }
+        const ad=a.address||{}; const street=[ad.house_number,ad.road].filter(Boolean).join(' ');
+        out.address=street||String(a.display_name||'').split(', ').slice(0,2).join(', ');
+        out.area=ad.neighbourhood||ad.suburb||ad.quarter||ad.city_district||'';
+      }
+    }
+  }catch(e){}
+  if(/goo\.gl|maps\.app/.test(link||'')&&out.lat==null) out.short=true;
+  return out;
+}
+
+/* ---------- map (Leaflet) ---------- */
+const DARK = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+function tiles(){ return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${DARK?'dark_all':'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`,{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}); }
+class LMap{
+  constructor(host){
+    this.map=L.map(host,{zoomControl:false,attributionControl:true,tap:true});
+    tiles().addTo(this.map); this.layer=L.layerGroup().addTo(this.map); this.routeL=null; this.onTap=null;
+    this.map.on('click',()=>{ if(this.onTap) this.onTap(null); });
+    this.inited=false;
+  }
+  home(center){ const c=center||{lat:40.742,lng:-73.975}; this.map.setView([c.lat,c.lng],13); this.inited=true; }
+  setPins(list,{sel,numbered,route,dimIds}={}){
+    this.layer.clearLayers(); if(this.routeL){ this.routeL.remove(); this.routeL=null; }
+    const r=(route||[]).filter(hasPt);
+    if(r.length>1) this.routeL=L.polyline(r.map(p=>[p.lat,p.lng]),{color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#0d6a48',weight:4,opacity:.8}).addTo(this.map);
+    for(const p of list.filter(hasPt)){
+      const c=CAT[p.category]||CAT.other; const n=numbered&&numbered[p.id];
+      const cls=[c.dark&&!n?'dark':'', sel===p.id?'sel':'', score(p)>=4?'hot':'', dimIds&&dimIds.has(p.id)?'dim':''].join(' ');
+      const icon=L.divIcon({className:'lpin',html:`<span class="bullet ${cls}" style="--b:${n?'var(--accent)':c.c}">${n||c.l}</span>`,iconSize:[26,26],iconAnchor:[13,13]});
+      const m=L.marker([p.lat,p.lng],{icon,zIndexOffset:sel===p.id?1000:0,keyboard:true,title:p.name}).addTo(this.layer);
+      m.on('click',e=>{ L.DomEvent.stopPropagation(e); if(this.onTap) this.onTap(p.id); });
+    }
+  }
+  fit(list,center){ const pts=(list||[]).filter(hasPt); if(!pts.length){ this.home(center); return; } if(pts.length===1){ this.map.setView([pts[0].lat,pts[0].lng],15); this.inited=true; return; } this.map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),{padding:[50,50],maxZoom:16}); this.inited=true; }
+  focus(p){ if(hasPt(p)){ this.map.setView([p.lat,p.lng],Math.max(this.map.getZoom()||15,15)); this.inited=true; } }
+}
+let mainMap=null;
+
+/* ---------- render ---------- */
+const ICONS = {
+  places:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  map:'<svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  plan:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  trip:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2c2.9.2 5.5 2.5 5.5 5.8"/></svg>'
+};
+const TAB_L = {places:'Места',map:'Карта',plan:'План',trip:'Поездка'};
+
+function renderTop(){
+  const t=trip(); const m=me();
+  const days=t?(t.days||[]).slice().sort():[];
+  const dates = days.length ? `${fmtDay(days[0])} – ${fmtDay(days[days.length-1])}` : '';
+  $('#top').innerHTML = `<div class="sign"><div class="sign-in"><span class="trip-name">${esc(t?t.name:'Наш маршрут')}</span><span class="trip-meta">${esc(t?[(t.members||[]).length+' чел.',dates].filter(Boolean).join(' · '):'')}</span></div></div>
+  ${t?`<button class="me" data-act="pick-me" aria-label="Кто ты">${m?esc(m):'Кто ты?'}</button>`:''}`;
+}
+function renderTabs(){
+  $('#tabs').innerHTML = Object.keys(TAB_L).map(k=>`<button class="tab" data-act="tab" data-tab="${k}" ${S.tab===k?'aria-current="page"':''}>${ICONS[k]}<span>${TAB_L[k]}</span></button>`).join('');
+}
+function banners(){
+  if(S.dbState==='none') return `<div class="banner warn">Не удалось подключиться к базе. Обнови страницу.</div>`;
+  if(S.dbState==='error') return `<div class="banner warn">База не отвечает или закрыта. Проверь интернет и обнови страницу.</div>`;
+  return '';
+}
+function render(){
+  renderTop(); renderTabs();
+  const main=$('#main');
+  if(S.tab!=='map'){ const h=$('#lmap'); if(h&&main.dataset.view!=='map'){} }
+  if(S.dbState==='loading'){ main.dataset.view='loading'; main.innerHTML=`<div class="wrap"><div class="empty"><p>Загружаю общий список…</p></div></div>`; return; }
+  if(!trip()){ main.dataset.view='none'; main.innerHTML=`<div class="wrap">${banners()}<div class="empty"><h2>Нет поездки</h2><p>Создай первую поездку: город, даты и кто едет.</p>${S.dbState==='ok'?'<button class="btn primary" data-act="new-trip">Новая поездка</button>':''}</div></div>`; return; }
+  ({places:renderPlaces,map:renderMap,plan:renderPlan,trip:renderTrip})[S.tab]();
+  if(!me() && !document.querySelector('.sheet-bg') && !S.askedMe){ S.askedMe=true; openMePicker(); }
+}
+
+/* Places */
+function filteredPlaces(){
+  const q=S.f.q.trim().toLowerCase();
+  let l=tripPlaces().filter(p=>(S.f.cat==='all'||p.category===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
+  const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a)};
+  return l.sort(by[S.f.sort]||by.votes);
+}
+function catChips(counts){
+  const all=tripPlaces().length;
+  return `<button class="chip nobullet" data-act="cat" data-cat="all" aria-pressed="${S.f.cat==='all'}">Все <span class="n">${all}</span></button>`+
+    CATS.map(c=>`<button class="chip" data-act="cat" data-cat="${c.id}" aria-pressed="${S.f.cat===c.id}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span>${c.name}${counts?` <span class="n">${counts[c.id]||0}</span>`:''}</button>`).join('');
+}
+function renderPlaces(){
+  const main=$('#main');
+  if(main.dataset.view!=='places'){
+    main.dataset.view='places';
+    main.innerHTML=`<div class="wrap"><div id="ban"></div><div class="toolbar"><input class="search" id="q" type="search" placeholder="Поиск по местам, районам, именам" value="${esc(S.f.q)}" autocomplete="off"><button class="btn primary" data-act="add">+ Место</button></div><div class="chips" id="cats"></div><div class="filters2" id="f2"></div><div class="list" id="list"></div></div>`;
+  }
+  $('#ban').innerHTML=banners();
+  const counts={}; tripPlaces().forEach(p=>counts[p.category]=(counts[p.category]||0)+1);
+  $('#cats').innerHTML=catChips(counts);
+  $('#f2').innerHTML=`<div class="seg" role="group" aria-label="Статус">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div>
+    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option></select>`;
+  renderList();
+}
+function renderList(){
+  const list=filteredPlaces(); const el=$('#list'); if(!el) return;
+  if(!tripPlaces().length){ el.innerHTML=`<div class="empty"><h2>Пока пусто</h2><p>Добавь первое место: название или ссылку из Google Maps. Адрес и точку на карте найдём сами.</p><button class="btn primary" data-act="add">+ Добавить место</button></div>`; return; }
+  if(!list.length){ el.innerHTML=`<div class="empty"><p>Под эти фильтры ничего не подходит.</p><button class="btn" data-act="reset-f">Сбросить фильтры</button></div>`; return; }
+  el.innerHTML=list.map(cardHTML).join('');
+}
+function dayOptions(p){
+  const t=trip(); const days=(t.days||[]).slice(); if(p.day&&!days.includes(p.day)) days.push(p.day);
+  return `<option value="">Не в плане</option>`+days.sort().map(d=>`<option value="${d}" ${p.day===d?'selected':''}>${esc(fmtDay(d))}</option>`).join('');
+}
+function voteButtons(p){ const v=votesOf(p); const my=(p.votes||{})[me()]; return VOTES.map(x=>`<button class="vote v${x.v>0?x.v:'n'}" data-act="vote" data-id="${esc(p.id)}" data-v="${x.v}" aria-pressed="${my===x.v}">${x.label} <b>${v[x.v].length}</b></button>`).join(''); }
+function cardHTML(p){
+  const c=CAT[p.category]||CAT.other; const st=statusOf(p); const v=votesOf(p);
+  const facts=[p.price, p.duration?`~${p.duration} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':'', hasPt(p)?'':'нет точки'].filter(Boolean);
+  const voters=VOTES.filter(x=>v[x.v].length).map(x=>`${x.label}: ${v[x.v].map(esc).join(', ')}`).join(' · ');
+  const link=safeUrl(p.link);
+  return `<article class="card" id="p-${esc(p.id)}">
+    <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}" title="${c.name}">${c.l}</span><div class="ttl"><h3>${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area), p.addedBy&&('добавил(а) '+esc(p.addedBy))].filter(Boolean).join(' · ')}</div></div><span class="status ${st}">${STATUS_L[st]}</span></div>
+    ${p.why?`<p class="why">${esc(p.why)}</p>`:''}
+    ${facts.length?`<div class="facts">${facts.map(f=>`<span>${esc(f)}</span>`).join('')}</div>`:''}
+    <div class="votes">${voteButtons(p)}${voters?`<div class="voters">${voters}</div>`:''}</div>
+    <div class="card-f"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select>
+      <button class="btn small ghost" data-act="done" data-id="${esc(p.id)}" aria-pressed="${!!p.done}">${p.done?'✓ Были':'Были'}</button>
+      ${hasPt(p)?`<button class="btn small ghost" data-act="show-map" data-id="${esc(p.id)}">На карте</button>`:''}
+      <a href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a>
+      ${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Ссылка</a>`:''}
+      <span class="spacer"></span><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div>
+  </article>`;
+}
+
+/* Map */
+function mapList(){
+  let l=tripPlaces().filter(p=>S.f.cat==='all'||p.category===S.f.cat);
+  if(S.mapDay==='idea') l=l.filter(p=>!p.day&&!p.done);
+  else if(S.mapDay!=='all') l=l.filter(p=>p.day===S.mapDay);
+  return l;
+}
+function dayStops(d){ return tripPlaces().filter(p=>p.day===d).sort((a,b)=>(a.order??0)-(b.order??0)||(a.createdAt||'').localeCompare(b.createdAt||'')); }
+let mapHost=null;
+function renderMap(){
+  const main=$('#main'); const t=trip();
+  if(main.dataset.view!=='map'){
+    main.dataset.view='map';
+    main.innerHTML=`<div class="map-wrap"><div id="map-slot" style="position:absolute;inset:0"></div>
+      <div class="map-top"><select class="sel" id="map-day" aria-label="Что показать"></select><div class="chips" id="map-cats"></div></div>
+      <div class="map-zoom"><button data-act="zin" aria-label="Приблизить">+</button><button data-act="zout" aria-label="Отдалить">−</button><button data-act="fit" aria-label="Показать все точки"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+      <div id="map-note"></div><div id="map-card"></div></div>`;
+    if(!mapHost){ mapHost=document.createElement('div'); mapHost.className='lhost'; mapHost.id='lmap'; }
+    $('#map-slot').appendChild(mapHost);
+    if(!mainMap){ mainMap=new LMap(mapHost); mainMap.onTap=pid=>{ S.mapSel=pid||null; updateMapPins(); renderMapCard(); }; }
+    setTimeout(()=>mainMap.map.invalidateSize(),0);
+    if(mainMap.forTrip!==t.id){ mainMap.forTrip=t.id; mainMap.inited=false; }
+  }
+  const days=(t.days||[]).slice().sort();
+  $('#map-day').innerHTML=`<option value="all">Все места</option><option value="idea">Только идеи (без дня)</option>`+days.map(d=>`<option value="${d}">${esc(fmtDay(d))} · ${dayStops(d).length}</option>`).join('');
+  if(S.mapDay!=='all'&&S.mapDay!=='idea'&&!days.includes(S.mapDay)) S.mapDay='all';
+  $('#map-day').value=S.mapDay;
+  $('#map-cats').innerHTML=catChips();
+  updateMapPins();
+  if(!mainMap.inited){ const l=mapList().filter(hasPt); if(l.length) mainMap.fit(l,t.center); else mainMap.home(t.center); }
+  renderMapCard();
+}
+function updateMapPins(){
+  if(!mainMap) return; const l=mapList();
+  let numbered=null, route=null;
+  if(S.mapDay!=='all'&&S.mapDay!=='idea'){ const st=dayStops(S.mapDay); numbered={}; st.forEach((p,i)=>numbered[p.id]=i+1); route=st; }
+  mainMap.setPins(l,{sel:S.mapSel,numbered,route});
+  updateMapNote();
+}
+function updateMapNote(){ const n=$('#map-note'); if(!n) return; const miss=mapList().filter(p=>!hasPt(p)).length; n.innerHTML = miss&&!S.mapSel ? `<div class="map-note">${miss} без точки на карте</div>`:''; }
+function renderMapCard(){
+  const el=$('#map-card'); if(!el) return; const p=tripPlaces().find(x=>x.id===S.mapSel);
+  if(!p){ el.innerHTML=''; updateMapNote(); return; }
+  const c=CAT[p.category]||CAT.other;
+  const near=tripPlaces().filter(x=>x.id!==p.id&&hasPt(x)&&hasPt(p)).map(x=>({x,d:haversine(p,x)})).filter(o=>o.d<=1.2).sort((a,b)=>a.d-b.d).slice(0,4);
+  el.innerHTML=`<div class="map-card"><button class="x" data-act="close-card" aria-label="Закрыть">×</button>
+    <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="ttl"><h3 style="margin:0;font-size:16px;padding-right:24px">${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area),STATUS_L[statusOf(p)],p.addedBy&&esc(p.addedBy)].filter(Boolean).join(' · ')}</div></div></div>
+    ${p.why?`<p class="why">${esc(p.why)}</p>`:''}
+    <div class="votes">${voteButtons(p)}</div>
+    ${near.length?`<div class="near">Рядом: ${near.map(o=>`<button data-act="sel" data-id="${esc(o.x.id)}">${esc(o.x.name)}</button> <span>${km(o.d)}</span>`).join(', ')}</div>`:''}
+    <div class="row"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select><a class="btn small" href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div></div>`;
+  updateMapNote();
+}
+
+/* Plan */
+function plural(n,a,b,c){ const m10=n%10,m100=n%100; return m10===1&&m100!==11?a:(m10>=2&&m10<=4&&(m100<10||m100>=20)?b:c); }
+function renderPlan(){
+  const main=$('#main'); main.dataset.view='plan'; const t=trip(); const days=(t.days||[]).slice().sort();
+  const ideas=tripPlaces().filter(p=>!p.day&&!p.done).length;
+  let h=`<div class="wrap">${banners()}`;
+  if(!days.length) h+=`<div class="empty"><h2>Дней пока нет</h2><p>Добавь дни поездки, потом раскладывай по ним места из общего списка.</p><button class="btn primary" data-act="add-day">+ Добавить день</button></div>`;
+  for(const d of days){
+    const st=dayStops(d); let total=0; for(let i=1;i<st.length;i++) if(hasPt(st[i-1])&&hasPt(st[i])) total+=haversine(st[i-1],st[i]);
+    const mins=st.reduce((s,p)=>s+(+p.duration||0),0);
+    const areas=[...new Set(st.map(p=>p.area).filter(Boolean))];
+    const dir=dirUrl(st); const past=d<todayISO();
+    h+=`<section class="day" ${past?'style="opacity:.7"':''}><div class="day-h"><h3>${esc(fmtDay(d,true))}</h3><span class="meta">${st.length} ${plural(st.length,'место','места','мест')}${total?` · ${km(total)} по прямой`:''}${mins?` · ~${Math.round(mins/6)/10} ч`:''}</span>${areas.length?`<span class="sub" style="width:100%">${areas.map(esc).join(', ')}</span>`:''}</div>
+      ${st.length?`<ol class="stops">${st.map((p,i)=>{ const leg=i>0&&hasPt(st[i-1])&&hasPt(p)?haversine(st[i-1],p):null; const c=CAT[p.category]||CAT.other; return `<li class="stop"><span class="num ${p.done?'done':''}">${i+1}</span><div class="nm"><b>${esc(p.name)}</b><span>${c.name}${p.area?' · '+esc(p.area):''}${p.duration?' · ~'+p.duration+' мин':''}${p.booking?' · бронь':''}</span>${leg!=null?`<span class="leg">↑ ${km(leg)} от предыдущего</span>`:''}</div>
+        <button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="-1" ${i===0?'disabled':''} aria-label="Выше">↑</button><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="1" ${i===st.length-1?'disabled':''} aria-label="Ниже">↓</button><button class="ico" data-act="unplan" data-id="${esc(p.id)}" aria-label="Убрать из дня">×</button></li>`; }).join('')}</ol>`:`<p class="hint" style="padding:12px">Пока ничего. Добавь места из списка идей.</p>`}
+      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${d}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${d}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">Маршрут в Google Maps</a>`:''}${st.length>2?`<button class="btn small ghost" data-act="sort-day" data-day="${d}">Упорядочить по пути</button>`:''}<span class="spacer"></span><button class="btn small ghost danger" data-act="rm-day" data-day="${d}">Удалить день</button></div></section>`;
+  }
+  if(days.length) h+=`<div class="row"><button class="btn" data-act="add-day">+ Добавить день</button><span class="hint">Идей без дня: ${ideas}</span></div>`;
+  h+=`</div>`; main.innerHTML=h;
+}
+
+/* Trip */
+function renderTrip(){
+  const main=$('#main'); main.dataset.view='trip'; const t=trip(); const m=me();
+  const days=(t.days||[]).slice().sort();
+  main.innerHTML=`<div class="wrap">${banners()}
+    <section class="panel"><div class="row"><h2>${esc(t.name)}</h2><span class="spacer"></span><button class="btn small" data-act="edit-trip">Изменить</button></div>
+      <p class="hint">${esc(t.city||'')}${days.length?` · ${esc(fmtDay(days[0],true))} — ${esc(fmtDay(days[days.length-1],true))} · ${days.length} ${plural(days.length,'день','дня','дней')}`:' · даты не указаны'}</p></section>
+    <section class="panel"><h2>Участники</h2>
+      <div class="people">${(t.members||[]).map(n=>`<span class="person ${n===m?'me-p':''} ${S.confirmMember===n?'confirm':''}">${esc(n)}${n===m?' (ты)':''}<button data-act="rm-member" data-name="${esc(n)}" aria-label="${S.confirmMember===n?'Точно удалить':'Удалить'} ${esc(n)}">${S.confirmMember===n?'✓':'×'}</button></span>`).join('')}</div>
+      ${S.confirmMember?`<p class="hint">Нажми ✓ ещё раз, чтобы убрать ${esc(S.confirmMember)} из поездки. Голоса останутся.</p>`:''}
+      <form class="row" data-form="add-member"><input class="search" id="new-member" placeholder="Имя нового участника" autocomplete="off" style="flex:1"><button class="btn" type="submit">Добавить</button></form>
+      <p class="hint">Чтобы позвать человека, просто отправь ему ссылку на это приложение. Регистрация не нужна: он выберет своё имя из списка.</p></section>
+    <section class="panel"><div class="row"><h2>Поездки</h2><span class="spacer"></span><button class="btn small primary" data-act="new-trip">Новая поездка</button></div>
+      <div class="trips-l">${S.trips.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(x=>{ const n=S.places.filter(p=>p.tripId===x.id).length; return `<button class="trip-row" data-act="switch-trip" data-id="${esc(x.id)}" aria-current="${x.id===S.tripId}"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b><br><span>${esc(x.city||'')} · ${(x.members||[]).length} чел. · ${n} ${plural(n,'место','места','мест')}</span></div>${x.id===S.tripId?'<span>сейчас</span>':''}</button>`; }).join('')}</div></section></div>`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html, onMount){
+  const root=$('#sheet-root'); root.innerHTML=`<div class="sheet-bg" data-sheet-bg><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  const bg=root.firstChild; bg.addEventListener('click',e=>{ if(e.target===bg) closeSheet(); });
+  if(onMount) onMount(bg.querySelector('.sheet'));
+}
+function closeSheet(){ $('#sheet-root').innerHTML=''; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('.picker')) $('.picker').remove(); else closeSheet(); } });
+
+function openMePicker(){
+  const t=trip(); if(!t) return;
+  openSheet(`<h2>Кто ты?</h2><p class="hint" style="margin-bottom:12px">Нужно, чтобы подписывать твои места и голоса. Запомню на этом телефоне.</p>
+    <div class="people">${(t.members||[]).map(n=>`<button class="btn" data-act="set-me" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    ${!(t.members||[]).length?'<p class="hint">В поездке пока нет участников. Добавь их во вкладке «Поездка».</p>':''}`);
+}
+
+function openPlaceForm(p){
+  const t=trip(); const isNew=!p;
+  const d = p ? JSON.parse(JSON.stringify(p)) : {name:'',category:'food',area:'',address:'',why:'',link:'',lat:null,lng:null,price:'',duration:null,booking:false,indoor:null};
+  const ptText=()=>hasPt(d)?`Точка на карте есть <code>${d.lat.toFixed(4)}, ${d.lng.toFixed(4)}</code>`:'Точки на карте пока нет';
+  openSheet(`<h2>${isNew?'Новое место':'Изменить место'}</h2>
+    <form data-form="place">
+      <div class="field"><label for="f-name">Название *</label><input id="f-name" required value="${esc(d.name)}" placeholder="Например, Katz's Delicatessen" autocomplete="off"></div>
+      <div class="field"><label for="f-link">Ссылка (Google Maps, сайт, Instagram)</label><input id="f-link" value="${esc(d.link)}" placeholder="https://maps.app.goo.gl/…" inputmode="url" autocomplete="off"></div>
+      <div class="coord"><div class="st" id="f-pt">${ptText()}</div>
+        <button type="button" class="btn small primary" data-fact="find" id="f-find">Найти адрес и точку</button>
+        <button type="button" class="btn small" data-fact="pick" id="f-pick">${hasPt(d)?'Поправить на карте':'Указать на карте'}</button></div>
+      <div id="f-note"></div>
+      <div class="field"><span class="lab">Категория</span><div class="chips" style="flex-wrap:wrap">${CATS.map(c=>`<button type="button" class="chip" data-fcat="${c.id}" aria-pressed="${d.category===c.id}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span>${c.name}</button>`).join('')}</div></div>
+      <div class="two"><div class="field"><label for="f-area">Район</label><input id="f-area" value="${esc(d.area)}" placeholder="Сохо" autocomplete="off"></div>
+      <div class="field"><label for="f-addr">Адрес</label><input id="f-addr" value="${esc(d.address)}" placeholder="205 E Houston St" autocomplete="off"></div></div>
+      <div class="field"><label for="f-why">Зачем идти</label><textarea id="f-why" placeholder="Легендарный пастрами, брать сэндвич на двоих">${esc(d.why)}</textarea></div>
+      <details class="more" ${d.price||d.duration||d.booking||d.indoor?'open':''}><summary>Подробности: цена, время, бронь</summary>
+        <div class="two" style="margin-top:8px"><div class="field"><label for="f-price">Цена</label><select id="f-price">${['','бесплатно','$','$$','$$$'].map(x=>`<option value="${x}" ${d.price===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
+        <div class="field"><label for="f-dur">Сколько времени, мин</label><input id="f-dur" type="number" min="0" step="15" inputmode="numeric" value="${d.duration??''}"></div></div>
+        <label class="check"><input type="checkbox" id="f-book" ${d.booking?'checked':''}> Нужна бронь или билеты</label>
+        <label class="check"><input type="checkbox" id="f-indoor" ${d.indoor?'checked':''}> В помещении (подходит на дождь)</label>
+      </details>
+      <div class="sheet-actions"><button class="btn primary" type="submit">${isNew?'Добавить':'Сохранить'}</button><button class="btn ghost" type="button" data-fact="cancel">Отмена</button><span class="spacer"></span>${isNew?'':`<button class="btn ghost danger" type="button" data-fact="del">Удалить</button>`}</div>
+    </form>`, sheet=>{
+    const read=()=>{ d.name=$('#f-name').value.trim(); d.link=$('#f-link').value.trim(); d.area=$('#f-area').value.trim(); d.address=$('#f-addr').value.trim(); d.why=$('#f-why').value.trim(); d.price=$('#f-price').value; d.duration=num($('#f-dur').value); d.booking=$('#f-book').checked; d.indoor=$('#f-indoor').checked; };
+    const setPt=()=>{ $('#f-pt').innerHTML=ptText(); $('#f-pick').textContent=hasPt(d)?'Поправить на карте':'Указать на карте'; };
+    const note=(t)=>{ $('#f-note').innerHTML=t?`<div class="find-res">${t}</div>`:''; };
+    let finding=false;
+    async function find(auto){
+      read(); const q=d.link||d.name; if(!q){ if(!auto) note('Сначала напиши название или вставь ссылку.'); return; }
+      if(finding) return; finding=true; const b=$('#f-find'); b.disabled=true; b.textContent='Ищу…';
+      try{
+        const r=await findPlace(d.link||'', d.name||'', t.city||'', t.center);
+        if(r&&r.lat!=null){
+          d.lat=r.lat; d.lng=r.lng; setPt();
+          if(r.name&&!$('#f-name').value.trim()) $('#f-name').value=r.name;
+          if(r.address&&!$('#f-addr').value.trim()) $('#f-addr').value=r.address;
+          if(r.area&&!$('#f-area').value.trim()) $('#f-area').value=r.area;
+          note(`Нашёл: ${esc(r.address||r.name||'')}. Если точка не та, поправь на карте.`);
+        } else note(auto?'':(r&&r.short?'Короткую ссылку не открыть. Нажми «Найти» по названию или открой ссылку и скопируй полную из адресной строки.':'Не нашёл. Уточни название (добавь район) или поставь точку на карте.'));
+      }catch(e){ note('Поиск сейчас не работает. Поставь точку на карте вручную.'); }
+      finally{ finding=false; b.disabled=false; b.textContent='Найти адрес и точку'; }
+    }
+    $('#f-link').addEventListener('change',()=>{ const r=parseLink($('#f-link').value); if(r.name&&!$('#f-name').value.trim()) $('#f-name').value=r.name; if(r.lat!=null){ d.lat=r.lat; d.lng=r.lng; setPt(); } if(r.lat==null||!$('#f-addr').value.trim()) find(true); });
+    sheet.querySelectorAll('[data-fcat]').forEach(b=>b.addEventListener('click',()=>{ d.category=b.dataset.fcat; sheet.querySelectorAll('[data-fcat]').forEach(x=>x.setAttribute('aria-pressed',x===b)); }));
+    let delArmed=false;
+    sheet.addEventListener('click',async e=>{
+      const a=e.target.closest('[data-fact]'); if(!a) return; const act=a.dataset.fact;
+      if(act==='cancel') closeSheet();
+      if(act==='find') find(false);
+      if(act==='pick'){ read(); openPicker(d, pt=>{ d.lat=pt.lat; d.lng=pt.lng; setPt(); }); }
+      if(act==='del'){
+        if(!delArmed){ delArmed=true; a.textContent='Точно удалить?'; return; }
+        if(await write(()=>placeRef(p.id).delete(),'Место удалено')){ if(S.mapSel===p.id) S.mapSel=null; closeSheet(); }
+      }
+    });
+    sheet.querySelector('form').addEventListener('submit', async e=>{
+      e.preventDefault(); read(); if(!d.name){ $('#f-name').focus(); return; }
+      const body={tripId:t.id,name:d.name,category:d.category,area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:d.duration,booking:!!d.booking,indoor:!!d.indoor};
+      closeSheet();
+      if(isNew){ const id=newId('p'); await write(()=>placeRef(id).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),day:'',done:false,order:0,votes:me()?{[me()]:2}:{}}),'Место добавлено'); }
+      else await write(()=>placeRef(p.id).update(body),'Сохранено');
+    });
+    if(isNew) setTimeout(()=>{ try{$('#f-name').focus()}catch(_){} },50);
+  });
+}
+
+function openPicker(d, done){
+  const t=trip(); const el=document.createElement('div'); el.className='picker';
+  el.innerHTML=`<div class="pm"><div class="lhost" id="pick-map"></div><div class="cross"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="6"/><path d="M18 2v10M18 24v10M2 18h10M24 18h10"/></svg></div></div>
+    <div class="picker-bar"><p>Двигай карту, чтобы крестик встал на «${esc(d.name||'новое место')}».</p><button class="btn" data-pk="cancel">Отмена</button><button class="btn primary" data-pk="ok">Поставить здесь</button></div>`;
+  document.body.appendChild(el);
+  const lm=new LMap(el.querySelector('#pick-map'));
+  const others=tripPlaces().filter(p=>hasPt(p)&&p.id!==d.id);
+  lm.setPins(others,{dimIds:new Set(others.map(p=>p.id))});
+  setTimeout(()=>{ lm.map.invalidateSize(); if(hasPt(d)) lm.map.setView([d.lat,d.lng],16); else lm.home(t.center); },0);
+  el.addEventListener('click',e=>{ const b=e.target.closest('[data-pk]'); if(!b) return; if(b.dataset.pk==='ok'){ const c=lm.map.getCenter(); done({lat:+c.lat.toFixed(6),lng:+c.lng.toFixed(6)}); } lm.map.remove(); el.remove(); });
+}
+
+function openDayPicker(day){
+  const st=dayStops(day); const pts=st.filter(hasPt);
+  const cen = pts.length?{lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length}:null;
+  const cands=tripPlaces().filter(p=>!p.day&&!p.done).map(p=>({p,d:cen&&hasPt(p)?haversine(cen,p):null})).sort((a,b)=>cen?((a.d??99)-(b.d??99)):(score(b.p)-score(a.p)));
+  openSheet(`<h2>${esc(fmtDay(day,true))}</h2><p class="hint" style="margin-bottom:12px">${cen?'Сначала то, что ближе к уже выбранным местам этого дня.':'Сначала самые популярные идеи.'}</p>
+    <div class="pick-list">${cands.length?cands.map(({p,d})=>{const c=CAT[p.category]||CAT.other; return `<button class="pick-item" data-act="plan-add" data-id="${esc(p.id)}" data-day="${day}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="nm">${esc(p.name)}<span>${[p.area&&esc(p.area), 'голоса '+(score(p)>0?'+':'')+score(p), d!=null?km(d)+' от дня':''].filter(Boolean).join(' · ')}</span></div><span class="btn small">Добавить</span></button>`}).join(''):'<p class="hint">Все идеи уже разложены по дням. Добавь новые места во вкладке «Места».</p>'}</div>
+    <div class="sheet-actions"><button class="btn ghost" data-act="close-sheet">Готово</button></div>`);
+}
+function openAddDay(){
+  const t=trip(); const days=(t.days||[]).slice().sort(); const def=days.length?addDays(days[days.length-1],1):todayISO();
+  openSheet(`<h2>Добавить день</h2><form data-form="add-day"><div class="field"><label for="d-date">Дата</label><input id="d-date" type="date" value="${def}" required></div><div class="sheet-actions"><button class="btn primary" type="submit">Добавить</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
+}
+function openTripForm(existing){
+  const t=existing; const cur=trip(); const days=t?(t.days||[]).slice().sort():[];
+  openSheet(`<h2>${t?'Поездка':'Новая поездка'}</h2><form data-form="trip" data-id="${t?esc(t.id):''}">
+    <div class="field"><label for="t-name">Название *</label><input id="t-name" required value="${esc(t?t.name:'')}" placeholder="Чикаго, весна" autocomplete="off"></div>
+    <div class="field"><label for="t-city">Город</label><input id="t-city" value="${esc(t?t.city:'')}" placeholder="Чикаго" autocomplete="off"></div>
+    <div class="two"><div class="field"><label for="t-start">Первый день</label><input id="t-start" type="date" value="${days[0]||''}"></div><div class="field"><label for="t-end">Последний день</label><input id="t-end" type="date" value="${days[days.length-1]||''}"></div></div>
+    ${t?'':`<label class="check"><input type="checkbox" id="t-copy" ${cur?'checked':''}> Взять участников из «${esc(cur?cur.name:'')}»</label>`}
+    <div class="sheet-actions"><button class="btn primary" type="submit">${t?'Сохранить':'Создать'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
+}
+
+/* ---------- actions ---------- */
+document.addEventListener('click', async e=>{
+  const a=e.target.closest('[data-act]'); if(!a) return; const act=a.dataset.act; const id=a.dataset.id;
+  const t=trip();
+  switch(act){
+    case 'tab': S.tab=a.dataset.tab; render(); break;
+    case 'pick-me': openMePicker(); break;
+    case 'set-me': LS.set('me:'+S.tripId,a.dataset.name); closeSheet(); render(); break;
+    case 'add': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openPlaceForm(null); break;
+    case 'edit': openPlaceForm(tripPlaces().find(p=>p.id===id)); break;
+    case 'cat': S.f.cat=a.dataset.cat; render(); break;
+    case 'status': S.f.status=a.dataset.st; render(); break;
+    case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:''}; const q=$('#q'); if(q) q.value=''; render(); break; }
+    case 'vote': {
+      const m=me(); if(!m){ openMePicker(); return; }
+      const p=tripPlaces().find(x=>x.id===id); const cur=(p.votes||{})[m]; const v=+a.dataset.v;
+      await write(()=>placeRef(id).update({votes:{[m]:cur===v?0:v}})); break; }
+    case 'done': { const p=tripPlaces().find(x=>x.id===id); await write(()=>placeRef(id).update({done:!p.done})); break; }
+    case 'show-map': S.tab='map'; S.mapSel=id; S.mapDay='all'; S.f.cat='all'; render(); { const p=tripPlaces().find(x=>x.id===id); if(p) mainMap.focus(p); } break;
+    case 'sel': S.mapSel=id; { const p=tripPlaces().find(x=>x.id===id); if(p) mainMap.focus(p); } updateMapPins(); renderMapCard(); break;
+    case 'close-card': S.mapSel=null; updateMapPins(); renderMapCard(); break;
+    case 'zin': mainMap.map.zoomIn(); break;
+    case 'zout': mainMap.map.zoomOut(); break;
+    case 'fit': mainMap.fit(mapList(),t.center); break;
+    case 'day-map': S.tab='map'; S.mapDay=a.dataset.day; S.mapSel=null; render(); mainMap.fit(dayStops(a.dataset.day),t.center); break;
+    case 'add-day': openAddDay(); break;
+    case 'add-to-day': openDayPicker(a.dataset.day); break;
+    case 'plan-add': { const d=a.dataset.day; const order=dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1; a.closest('.pick-item').remove(); await write(()=>placeRef(id).update({day:d,order})); break; }
+    case 'close-sheet': closeSheet(); break;
+    case 'unplan': await write(()=>placeRef(id).update({day:''})); break;
+    case 'mv': {
+      const p=tripPlaces().find(x=>x.id===id); const st=dayStops(p.day); const i=st.findIndex(x=>x.id===id); const j=i+(+a.dataset.dir); if(j<0||j>=st.length) return;
+      const arr=st.slice(); [arr[i],arr[j]]=[arr[j],arr[i]];
+      await reorder(arr); break; }
+    case 'sort-day': {
+      const st=dayStops(a.dataset.day); const withPt=st.filter(hasPt), without=st.filter(p=>!hasPt(p)); if(withPt.length<3){ toast('Нужно хотя бы 3 места с точками'); return; }
+      const route=[withPt[0]]; const left=withPt.slice(1);
+      while(left.length){ const last=route[route.length-1]; let bi=0,bd=1e9; left.forEach((p,i)=>{const d=haversine(last,p); if(d<bd){bd=d;bi=i}}); route.push(left.splice(bi,1)[0]); }
+      await reorder(route.concat(without)); toast('Порядок пересобран от первого места'); break; }
+    case 'rm-day': {
+      const d=a.dataset.day; if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно удалить?'; return; }
+      for(const p of dayStops(d)){ if(!await write(()=>placeRef(p.id).update({day:''}))) return; }
+      await write(()=>tripRef(t.id).update({days:(t.days||[]).filter(x=>x!==d)}),'День удалён'); break; }
+    case 'edit-trip': openTripForm(t); break;
+    case 'new-trip': openTripForm(null); break;
+    case 'switch-trip': S.tripId=id; LS.set('trip',id); S.mapSel=null; S.mapDay='all'; S.askedMe=false; S.tab='places'; render(); break;
+    case 'rm-member': {
+      const n=a.dataset.name; if(S.confirmMember!==n){ S.confirmMember=n; render(); return; }
+      S.confirmMember=null; await write(()=>tripRef(t.id).update({members:(t.members||[]).filter(x=>x!==n)})); break; }
+  }
+});
+async function reorder(arr){ for(let k=0;k<arr.length;k++){ if((arr[k].order??-1)!==k+1){ const ok=await write(()=>placeRef(arr[k].id).update({order:k+1})); if(!ok) break; } } }
+document.addEventListener('change', async e=>{
+  const el=e.target;
+  if(el.matches('[data-act="set-day"]')){ const d=el.value; const order=d?dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1:0; await write(()=>placeRef(el.dataset.id).update({day:d,order})); }
+  if(el.id==='sort'){ S.f.sort=el.value; renderList(); }
+  if(el.id==='map-day'){ S.mapDay=el.value; S.mapSel=null; updateMapPins(); renderMapCard(); if(S.mapDay!=='all') mainMap.fit(mapList(),trip().center); }
+});
+document.addEventListener('input', e=>{ if(e.target.id==='q'){ S.f.q=e.target.value; renderList(); } });
+document.addEventListener('submit', async e=>{
+  const f=e.target; const kind=f.dataset.form; if(!kind||kind==='place') return; e.preventDefault(); const t=trip();
+  if(kind==='add-member'){ const n=$('#new-member').value.trim(); if(!n) return; if((t.members||[]).includes(n)){ toast('Такой участник уже есть'); return; } $('#new-member').value=''; await write(()=>tripRef(t.id).update({members:[...(t.members||[]),n]})); }
+  if(kind==='add-day'){ const d=$('#d-date').value; if(!d) return; if((t.days||[]).includes(d)){ toast('Этот день уже есть'); return; } closeSheet(); await write(()=>tripRef(t.id).update({days:[...(t.days||[]),d].sort()}),'День добавлен'); }
+  if(kind==='trip'){
+    const name=$('#t-name').value.trim(), city=$('#t-city').value.trim(), s=$('#t-start').value, en=$('#t-end').value; if(!name) return;
+    let range=[]; if(s){ const end=en&&en>=s?en:s; for(let d=s, i=0; d<=end&&i<60; d=addDays(d,1), i++) range.push(d); }
+    let center=null; if(city){ try{ const r=await findPlace('','',city,null); if(r&&r.lat!=null) center={lat:r.lat,lng:r.lng}; }catch(_){} }
+    if(f.dataset.id){ const ex=S.trips.find(x=>x.id===f.dataset.id); const days=[...new Set([...(ex.days||[]),...range])].sort(); closeSheet(); await write(()=>tripRef(ex.id).update({name,city,days,...(center&&city!==ex.city?{center}:{})}),'Сохранено'); }
+    else{
+      const nid=newId('t'); const copy=$('#t-copy')&&$('#t-copy').checked&&t; const members=copy?(t.members||[]).slice():[];
+      closeSheet();
+      if(await write(()=>tripRef(nid).set({name,city,days:range,members,center,createdAt:new Date().toISOString()}),'Поездка создана')){
+        if(copy&&me()) LS.set('me:'+nid,me()); S.tripId=nid; LS.set('trip',nid); S.askedMe=false; S.tab=members.length?'places':'trip'; render(); }
+    }
+  }
+});
+
+/* ---------- boot ---------- */
+function pickTrip(){
+  if(S.trips.some(t=>t.id===S.tripId)) return;
+  const sorted=S.trips.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); S.tripId=sorted[0]?sorted[0].id:null;
+}
+render();
+if(!FS){ S.dbState='none'; render(); }
+else{
+  const err=e=>{ console.error(e); S.dbState='error'; render(); };
+  let seeded=false;
+  FS.collection('trips').onSnapshot(s=>{
+    S.trips=s.docs.map(d=>({id:d.id,...d.data()})); S.loaded.trips=true;
+    if(!S.trips.length&&!s.metadata.fromCache&&!seeded){ seeded=true; FS.collection('trips').doc(SEED_TRIP.id).set(SEED_TRIP.data).catch(err); }
+    pickTrip(); if(S.loaded.places){ S.dbState='ok'; softRender(); }
+  }, err);
+  FS.collection('places').onSnapshot(s=>{
+    S.places=s.docs.map(d=>({id:d.id,...d.data()})); S.loaded.places=true;
+    if(S.loaded.trips){ S.dbState='ok'; softRender(); }
+  }, err);
+}
+</script>
+</body>
+</html>
