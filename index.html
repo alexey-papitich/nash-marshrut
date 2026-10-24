@@ -356,6 +356,9 @@ const looksBase = n => /^(дом|жиль|квартир|отель|гостин
 const guessBaseType = n => /аэропорт|airport|вокзал|station|jfk|lga|ewr/i.test(n||'')?'transport':'home';
 // Жильё для маршрута дня: если их несколько, ближайшее к первой остановке
 function homeFor(stops){ const hs=tripBases().filter(p=>p.baseType==='home'&&hasPt(p)); if(!hs.length) return null; const s=(stops||[]).find(hasPt); return s?hs.reduce((a,b)=>haversine(a,s)<=haversine(b,s)?a:b):hs[0]; }
+// Админ поездки: удаляет дни и меняет даты. Список в trip.admins, по умолчанию Алексей. Это защита от случайного нажатия, не от взлома: входа нет.
+const admins = t => (t&&Array.isArray(t.admins)&&t.admins.length) ? t.admins : ['Алексей'];
+const isAdmin = () => admins(trip()).includes(me());
 const me = () => { const t=trip(); const n=t?LS.get('me:'+t.id,null):null; return (t&&n&&(t.members||[]).includes(n))?n:null; };
 
 /* ---------- writes ---------- */
@@ -677,7 +680,7 @@ function renderPlan(){
     h+=`<section class="day ${when}" ${when==='today'?'id="day-today"':''}><div class="day-h"><h3>${esc(fmtDay(d,true))}</h3>${when==='today'?'<span class="today-b">Сегодня</span>':''}<span class="meta">${st.length} ${plural(st.length,'место','места','мест')}${total?` · ${km(total)} по прямой`:''}${mins?` · ~${String(Math.round(mins/6)/10).replace('.',',')} ч`:''}</span>${areas.length?`<span class="sub" style="width:100%">${areas.map(esc).join(', ')}</span>`:''}</div>
       ${st.length?`<ol class="stops">${st.map((p,i)=>{ const prev=i>0?st[i-1]:home; const leg=prev&&hasPt(prev)&&hasPt(p)?haversine(prev,p):null; const c=CAT[p.category]||CAT.other; const tag=hasPt(p)?'button':'div'; return `<li class="stop"><span class="num ${p.done?'done':''}">${i+1}</span><${tag} class="nm" ${hasPt(p)?`data-act="show-map" data-id="${esc(p.id)}"`:''}><b>${esc(p.name)}</b><span>${c.name}${p.area?' · '+esc(p.area):''}${dur(p)?' · ~'+dur(p)+' мин':''}${p.booking?' · бронь':''}</span>${leg!=null?`<span class="leg">${i>0?'↑ '+km(leg)+' от предыдущего':km(leg)+' от жилья'}</span>`:''}</${tag}>
         <span class="mv"><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="-1" ${i===0?'disabled':''} aria-label="Выше">↑</button><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="1" ${i===st.length-1?'disabled':''} aria-label="Ниже">↓</button></span><button class="ico" data-act="unplan" data-id="${esc(p.id)}" aria-label="Убрать из дня">×</button></li>`; }).join('')}</ol>`:`<p class="hint" style="padding:12px">Пока ничего. Добавь места из списка идей.</p>`}
-      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${esc(d)}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${esc(d)}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">${home?'Маршрут от жилья':'Маршрут в Google Maps'}</a>`:''}${st.length>(home?1:2)?`<button class="btn small ghost" data-act="sort-day" data-day="${esc(d)}">Упорядочить по пути</button>`:''}<span class="spacer"></span><button class="btn small ghost danger" data-act="rm-day" data-day="${esc(d)}">Удалить день</button></div></section>`;
+      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${esc(d)}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${esc(d)}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">${home?'Маршрут от жилья':'Маршрут в Google Maps'}</a>`:''}${st.length>(home?1:2)?`<button class="btn small ghost" data-act="sort-day" data-day="${esc(d)}">Упорядочить по пути</button>`:''}<span class="spacer"></span>${isAdmin()?`<button class="btn small ghost danger" data-act="rm-day" data-day="${esc(d)}">Удалить день</button>`:''}</div></section>`;
   }
   if(days.length) h+=`<div class="row"><button class="btn" data-act="add-day">+ Добавить день</button><span class="hint">Идей без дня: ${ideas}</span></div>`;
   h+=`</div>`; main.innerHTML=h;
@@ -701,7 +704,7 @@ function renderTrip(){
       <p class="hint">${esc(t.city||'')}${days.length?` · ${esc(fmtDay(days[0],true))} — ${esc(fmtDay(days[days.length-1],true))} · ${days.length} ${plural(days.length,'день','дня','дней')}`:' · даты не указаны'}</p></section>
     ${basesPanel()}
     <section class="panel"><h2>Участники</h2>
-      <div class="people">${(t.members||[]).map(n=>`<span class="person ${n===m?'me-p':''} ${S.confirmMember===n?'confirm':''}">${esc(n)}${n===m?' (ты)':''}<button data-act="rm-member" data-name="${esc(n)}" aria-label="${S.confirmMember===n?'Точно удалить':'Удалить'} ${esc(n)}">${S.confirmMember===n?'✓':'×'}</button></span>`).join('')}</div>
+      <div class="people">${(t.members||[]).map(n=>`<span class="person ${n===m?'me-p':''} ${S.confirmMember===n?'confirm':''}">${esc(n)}${n===m?' (ты)':''}${admins(t).includes(n)?' · админ':''}<button data-act="rm-member" data-name="${esc(n)}" aria-label="${S.confirmMember===n?'Точно удалить':'Удалить'} ${esc(n)}">${S.confirmMember===n?'✓':'×'}</button></span>`).join('')}</div>
       ${S.confirmMember?`<p class="hint">Нажми ✓ ещё раз, чтобы убрать ${esc(S.confirmMember)} из поездки. Голоса останутся.</p>`:''}
       <form class="row" data-form="add-member"><input class="search" id="new-member" placeholder="Имя нового участника" autocomplete="off" style="flex:1"><button class="btn" type="submit">Добавить</button></form>
       <p class="hint">Чтобы позвать человека, просто отправь ему ссылку на это приложение. Регистрация не нужна: он выберет своё имя из списка.</p></section>
@@ -884,7 +887,8 @@ function openTripForm(existing){
   openSheet(`<h2>${t?'Поездка':'Новая поездка'}</h2><form data-form="trip" data-id="${t?esc(t.id):''}">
     <div class="field"><label for="t-name">Название *</label><input id="t-name" required value="${esc(t?t.name:'')}" placeholder="Чикаго, весна" autocomplete="off"></div>
     <div class="field"><label for="t-city">Город</label><input id="t-city" value="${esc(t?t.city:'')}" placeholder="Чикаго" autocomplete="off"></div>
-    <div class="two"><div class="field"><label for="t-start">Первый день</label><input id="t-start" type="date" value="${esc(days[0]||'')}"></div><div class="field"><label for="t-end">Последний день</label><input id="t-end" type="date" value="${esc(days[days.length-1]||'')}"></div></div>
+    <div class="two"><div class="field"><label for="t-start">Первый день</label><input id="t-start" type="date" value="${esc(days[0]||'')}" ${t&&!isAdmin()?'disabled':''}></div><div class="field"><label for="t-end">Последний день</label><input id="t-end" type="date" value="${esc(days[days.length-1]||'')}" ${t&&!isAdmin()?'disabled':''}></div></div>
+    ${t&&!isAdmin()?`<p class="hint" style="margin:-4px 0 12px">Даты меняет админ: ${esc(admins(t).join(', '))}.</p>`:''}
     ${t?'':`<label class="check"><input type="checkbox" id="t-copy" ${cur?'checked':''}> Взять участников из «${esc(cur?cur.name:'')}»</label>`}
     <div class="sheet-actions"><button class="btn primary" type="submit">${t?'Сохранить':'Создать'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`,
     sheet=>{ const f=sheet.querySelector('form'); f.dataset.s0=$('#t-start').value; f.dataset.e0=$('#t-end').value; }); // что реально показано в полях, чтобы понять, меняли ли даты
@@ -941,7 +945,7 @@ document.addEventListener('click', async e=>{
       const route=[], left=withPt.slice(); let last=home||left.shift(); if(!home) route.push(last);
       while(left.length){ let bi=0,bd=1e9; left.forEach((p,i)=>{const d=haversine(last,p); if(d<bd){bd=d;bi=i}}); last=left.splice(bi,1)[0]; route.push(last); }
       await reorder(route.concat(without)); toast(home?'Порядок пересобран от жилья':'Порядок пересобран от первого места'); break; }
-    case 'rm-day': {
+    case 'rm-day': { if(!isAdmin()){ toast('Удалять дни может только админ: '+admins(t).join(', ')); return; }
       const d=a.dataset.day; if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно удалить?'; return; }
       const ops=dayStops(d).map(p=>['places',p.id,{day:''}]); ops.push(['trips',t.id,{days:(t.days||[]).filter(x=>x!==d)}]);
       await write(()=>batch(ops),'День удалён'); break; }
@@ -973,12 +977,12 @@ document.addEventListener('submit', async e=>{
     const center=city&&(!ex||city!==ex.city)?await findCity(city):null;
     if(ex){
       // Даты трогаем, только если их правда поменяли; дни, где уже есть места, не выкидываем
-      let days=ex.days||[]; if(s!==f.dataset.s0||en!==f.dataset.e0){ const used=new Set(S.places.filter(p=>p.tripId===ex.id&&p.day).map(p=>p.day)); days=[...new Set([...range,...days.filter(d=>used.has(d))])].sort(); }
+      let days=ex.days||[]; if(isAdmin()&&(s!==f.dataset.s0||en!==f.dataset.e0)){ const used=new Set(S.places.filter(p=>p.tripId===ex.id&&p.day).map(p=>p.day)); days=[...new Set([...range,...days.filter(d=>used.has(d))])].sort(); }
       closeSheet(); await write(()=>tripRef(ex.id).update({name,city,days,...(center?{center}:{})}),'Сохранено'); }
     else{
       const nid=newId('t'); const copy=$('#t-copy')&&$('#t-copy').checked&&t; const members=copy?(t.members||[]).slice():[];
       closeSheet();
-      if(await write(()=>tripRef(nid).set({name,city,days:range,members,center,createdAt:new Date().toISOString()}),'Поездка создана')){
+      if(await write(()=>tripRef(nid).set({name,city,days:range,members,center,admins:me()?[me()]:[],createdAt:new Date().toISOString()}),'Поездка создана')){
         if(copy&&me()) LS.set('me:'+nid,me()); S.tripId=nid; LS.set('trip',nid); S.askedMe=false; S.tab=members.length?'places':'trip'; render(); }
     }
   }
