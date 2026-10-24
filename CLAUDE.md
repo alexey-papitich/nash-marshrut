@@ -12,7 +12,8 @@
   Конфиг (`firebaseConfig`) лежит прямо в `index.html`; это публичные ключи, так и задумано.
 - **Правила базы**: `firestore.rules`. Это копия; применяются они только после публикации в Firebase Console → Firestore → Rules → Publish.
   Меняешь правила в файле → напомни Алексею опубликовать.
-- **Карта**: Leaflet 1.9.4 (cdnjs) + тайлы CARTO (Voyager / Dark Matter) на OpenStreetMap.
+- **Карта**: Leaflet 1.9.4 (cdnjs) + стандартные тайлы OpenStreetMap (`tile.openstreetmap.org`, без ключа). Тёмная тема получается CSS-фильтром на `.leaflet-tile-pane`. CARTO без API-ключа больше не работает: вместо тайлов отдаёт заглушку «API KEY REQUIRED».
+- **Телефон — основной сценарий.** Цели для пальца не меньше ~34px, никакой горизонтальной прокрутки на ширине 375px, отступы safe-area у шапки и таб-бара.
 - **Поиск мест**: Nominatim (OpenStreetMap) прямо из браузера. Короткие ссылки `maps.app.goo.gl` из браузера не раскрыть (CORS), полные ссылки Google Maps с `@lat,lng` парсятся локально.
 
 ## Доступ
