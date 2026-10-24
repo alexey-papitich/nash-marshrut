@@ -227,6 +227,7 @@ details.more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--a
 .picker-bar{padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--surface)}
 .picker-bar p{flex:1;min-width:180px;margin:0;font-size:13px;color:var(--muted)}
 
+.toast-act{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;padding:6px 0 6px 8px}
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
 .nag{text-align:center;padding:6px 0 4px}
 .nag-t{display:inline-block;background:#0d6a48;color:#fff;border-radius:10px;padding:4px;margin:4px 0 14px;animation:nag-pop .5s ease}
@@ -313,7 +314,12 @@ function parseLink(link){
   const n = s.match(/\/maps\/place\/([^/@?]+)/); if(n){ try{ out.name=decodeURIComponent(n[1].replace(/\+/g,' ')); }catch(e){} }
   return out;
 }
-function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
+// act: {label, fn} — кнопка в тосте (например, «Вернуть как было»); такой тост висит дольше
+function toast(msg,act){
+  document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent=msg;
+  if(act){ const b=document.createElement('button'); b.className='toast-act'; b.textContent=act.label; b.onclick=()=>{ t.remove(); act.fn(); }; t.append(' ',b); }
+  document.body.appendChild(t); setTimeout(()=>t.remove(),act?8000:2600);
+}
 const newId = p => p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ---------- Firebase ---------- */
@@ -939,11 +945,14 @@ document.addEventListener('click', async e=>{
       const arr=st.slice(); [arr[i],arr[j]]=[arr[j],arr[i]];
       await reorder(arr); break; }
     case 'sort-day': {
-      const st=dayStops(a.dataset.day); const withPt=st.filter(hasPt), without=st.filter(p=>!hasPt(p)); const home=homeFor(st);
+      // Пересборка стирает ручной порядок: сначала подтверждение, потом можно вернуть
+      if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно пересобрать?'; setTimeout(()=>{ if(a.isConnected){ a.dataset.armed=''; a.textContent='Упорядочить по пути'; } },4000); return; }
+      const st=dayStops(a.dataset.day); const before=st.map(p=>['places',p.id,{order:p.order??0}]); const withPt=st.filter(hasPt), without=st.filter(p=>!hasPt(p)); const home=homeFor(st);
       if(withPt.length<(home?2:3)){ toast('Нужно хотя бы '+(home?2:3)+' места с точками'); return; }
       const route=[], left=withPt.slice(); let last=home||left.shift(); if(!home) route.push(last);
       while(left.length){ let bi=0,bd=1e9; left.forEach((p,i)=>{const d=haversine(last,p); if(d<bd){bd=d;bi=i}}); last=left.splice(bi,1)[0]; route.push(last); }
-      await reorder(route.concat(without)); toast(home?'Порядок пересобран от жилья':'Порядок пересобран от первого места'); break; }
+      await reorder(route.concat(without));
+      toast(home?'Порядок пересобран от жилья.':'Порядок пересобран от первого места.',{label:'Вернуть как было',fn:()=>write(()=>batch(before),'Порядок возвращён')}); break; }
     case 'rm-day': { if(!isAdmin()){ toast('Удалять дни может только админ: '+admins(t).join(', ')); return; }
       const d=a.dataset.day; if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно удалить?'; return; }
       const ops=dayStops(d).map(p=>['places',p.id,{day:''}]); ops.push(['trips',t.id,{days:(t.days||[]).filter(x=>x!==d)}]);
