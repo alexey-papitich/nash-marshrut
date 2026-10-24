@@ -38,7 +38,7 @@
 - `createdAt`: ISO-строка
 
 `places/{id}`:
-- `tripId`, `name`, `category` (food | coffee | bars | museum | view | walk | shop | other)
+- `tripId`, `name`, `category` (food | coffee | museum | view | walk | shop | other; неизвестные, например бывшие `bars`, показываются как other)
 - `area`, `address`, `why`, `link`
 - `lat`, `lng` (или null)
 - `price` ('' | бесплатно | $ | $$ | $$$), `duration` (мин), `booking` (bool), `indoor` (bool)

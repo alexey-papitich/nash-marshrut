@@ -28,7 +28,7 @@ html{touch-action:manipulation;-webkit-tap-highlight-color:transparent} /* бе�
   --bg:#f2f3ef; --surface:#ffffff; --surface-2:#e7eae4; --fg:#17201b; --muted:#5a665f; --line:#d3d8d1;
   --accent:#0d6a48; --accent-2:#0a5539; --accent-fg:#ffffff; --taxi:#f2b705; --taxi-fg:#1d1a0b; --danger:#b3261e;
   --water:#cbdbe2; --shadow:0 6px 24px rgba(20,30,25,.14);
-  --c-food:#ee352e; --c-coffee:#8a5a2b; --c-bars:#b933ad; --c-museum:#0039a6; --c-view:#ff6319; --c-walk:#00933c; --c-shop:#fccc0a; --c-other:#7d8580;
+  --c-food:#ee352e; --c-coffee:#8a5a2b; --c-museum:#0039a6; --c-view:#ff6319; --c-walk:#00933c; --c-shop:#fccc0a; --c-other:#7d8580;
   --f-display:"Oswald","Arial Narrow","Roboto Condensed",sans-serif;
   --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -274,7 +274,6 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 const CATS = [
   {id:'food',name:'Еда',l:'Е',c:'var(--c-food)'},
   {id:'coffee',name:'Кофе',l:'К',c:'var(--c-coffee)'},
-  {id:'bars',name:'Бары',l:'Б',c:'var(--c-bars)'},
   {id:'museum',name:'Музеи',l:'М',c:'var(--c-museum)'},
   {id:'view',name:'Виды',l:'В',c:'var(--c-view)'},
   {id:'walk',name:'Прогулки',l:'П',c:'var(--c-walk)'},
@@ -282,6 +281,7 @@ const CATS = [
   {id:'other',name:'Другое',l:'Д',c:'var(--c-other)'}
 ];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
+const catId = p => CAT[p.category] ? p.category : 'other'; // старые или неизвестные категории (например, бывшие «Бары») считаем «Другим»
 const VOTES = [{v:2,label:'Очень хочу'},{v:1,label:'Можно'},{v:-1,label:'Пропущу'}];
 
 /* ---------- helpers ---------- */
@@ -415,7 +415,6 @@ function nomAddr(a){
 function catOf(a){ // тип объекта OSM → наша категория
   const t=a.type||'', c=a.category||'';
   if(/^(cafe|coffee|tea)$/.test(t)) return 'coffee';
-  if(/^(bar|pub|nightclub|biergarten|wine_bar)$/.test(t)) return 'bars';
   if(/^(restaurant|fast_food|food_court|ice_cream|bakery|deli|pastry|confectionery|cheese|seafood)$/.test(t)) return 'food';
   if(/^(museum|gallery|arts_centre)$/.test(t)) return 'museum';
   if(t==='viewpoint'||(c==='tourism'&&t==='attraction')) return 'view';
@@ -547,7 +546,7 @@ function render(){
 /* Places */
 function filteredPlaces(){
   const q=S.f.q.trim().toLowerCase();
-  let l=tripPlaces().filter(p=>(S.f.cat==='all'||p.category===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
+  let l=tripPlaces().filter(p=>(S.f.cat==='all'||catId(p)===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
   const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a), near:(a,b)=>(fromMe(a)??1e9)-(fromMe(b)??1e9)||score(b)-score(a)};
   return l.sort(by[S.f.sort]||by.votes);
 }
@@ -563,7 +562,7 @@ function renderPlaces(){
     main.innerHTML=`<div class="wrap"><div id="ban"></div><div class="toolbar"><input class="search" id="q" type="search" placeholder="Поиск по местам, районам, именам" value="${esc(S.f.q)}" autocomplete="off"><button class="btn primary" data-act="add">+ Место</button></div><div class="chips" id="cats"></div><div class="filters2" id="f2"></div><div class="list" id="list"></div></div>`;
   }
   $('#ban').innerHTML=banners();
-  const counts={}; tripPlaces().forEach(p=>counts[p.category]=(counts[p.category]||0)+1);
+  const counts={}; tripPlaces().forEach(p=>counts[catId(p)]=(counts[catId(p)]||0)+1);
   $('#cats').innerHTML=catChips(counts);
   $('#f2').innerHTML=`<div class="seg" role="group" aria-label="Статус">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div>
     <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>
@@ -605,7 +604,7 @@ function cardHTML(p){
 
 /* Map */
 function mapList(){
-  let l=tripPlaces().filter(p=>S.f.cat==='all'||p.category===S.f.cat);
+  let l=tripPlaces().filter(p=>S.f.cat==='all'||catId(p)===S.f.cat);
   if(S.mapDay==='idea') l=l.filter(p=>!p.day&&!p.done);
   else if(S.mapDay!=='all') l=l.filter(p=>p.day===S.mapDay);
   return l;
