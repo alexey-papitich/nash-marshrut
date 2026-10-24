@@ -228,7 +228,12 @@ details.more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--a
 .picker-bar p{flex:1;min-width:180px;margin:0;font-size:13px;color:var(--muted)}
 
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
-@media (prefers-reduced-motion: reduce){.card.flash{animation:none}}
+.nag{text-align:center;padding:6px 0 4px}
+.nag-t{display:inline-block;background:#0d6a48;color:#fff;border-radius:10px;padding:4px;margin:4px 0 14px;animation:nag-pop .5s ease}
+.nag-t span{display:block;border:3px solid #fff;border-radius:7px;padding:10px 22px 12px;font:600 40px/1.05 var(--f-display);letter-spacing:.04em;text-transform:uppercase}
+.nag .sheet-actions{justify-content:center}
+@keyframes nag-pop{0%{transform:scale(.6) rotate(-4deg);opacity:0}70%{transform:scale(1.06) rotate(1deg)}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.card.flash,.nag-t{animation:none}}
 
 /* Leaflet map */
 #lmap,.lhost{position:absolute;inset:0;background:var(--water)}
@@ -533,6 +538,7 @@ function render(){
   if(!trip()){ main.dataset.view='none'; main.innerHTML=`<div class="wrap">${banners()}<div class="empty"><h2>Нет поездки</h2><p>Создай первую поездку: город, даты и кто едет.</p>${S.dbState==='ok'?'<button class="btn primary" data-act="new-trip">Новая поездка</button>':''}</div></div>`; return; }
   ({places:renderPlaces,map:renderMap,plan:renderPlan,trip:renderTrip})[S.tab]();
   if(!me() && !document.querySelector('.sheet-bg') && !S.askedMe){ S.askedMe=true; openMePicker(); }
+  nagAnya();
 }
 
 /* Places */
@@ -715,6 +721,12 @@ const setSheetCleanup=fn=>sheetCleanup.push(fn);
 function closeSheet(){ const fns=sheetCleanup; sheetCleanup=[]; fns.forEach(f=>{ try{ f(); }catch(_){} }); $('#sheet-root').innerHTML=''; }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const pk=$('.picker [data-pk="cancel"]'); if(pk) pk.click(); else closeSheet(); } });
 
+// ВРЕМЕННО (просьба Алексея 24.10.2026): Ане при каждом открытии напоминание заполнить план. Само выключится после поездки.
+function nagAnya(){
+  if(S.nagShown||me()!=='Аня'||todayISO()>'2026-10-28'||document.querySelector('.sheet-bg')) return; S.nagShown=true;
+  openSheet(`<div class="nag"><div class="nag-t"><span>Аня,<br>заполни план</span></div><p class="hint">Разложи места по дням во вкладке «План». Все ждут 🙂</p>
+    <div class="sheet-actions"><button class="btn primary" data-act="nag-go">Открыть план</button><button class="btn ghost" data-act="close-sheet">Позже</button></div></div>`);
+}
 function openMePicker(){
   const t=trip(); if(!t) return;
   openSheet(`<h2>Кто ты?</h2><p class="hint" style="margin-bottom:12px">Нужно, чтобы подписывать твои места и голоса. Запомню на этом телефоне.</p>
@@ -917,6 +929,7 @@ document.addEventListener('click', async e=>{
     case 'add-to-day': openDayPicker(a.dataset.day); break;
     case 'plan-add': { const d=a.dataset.day; const order=dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1; a.closest('.pick-item').remove(); await write(()=>placeRef(id).update({day:d,order})); break; }
     case 'close-sheet': closeSheet(); break;
+    case 'nag-go': closeSheet(); { const b=$('[data-act="tab"][data-tab="plan"]'); if(b) b.click(); } break;
     case 'unplan': await write(()=>placeRef(id).update({day:''})); break;
     case 'mv': {
       const p=tripPlaces().find(x=>x.id===id); if(!p||!p.day) return; const st=dayStops(p.day); const i=st.findIndex(x=>x.id===id); const j=i+(+a.dataset.dir); if(j<0||j>=st.length) return;
