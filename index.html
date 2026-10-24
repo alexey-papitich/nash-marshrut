@@ -710,6 +710,7 @@ function renderTrip(){
     ${basesPanel()}
     <section class="panel"><h2>Участники</h2>
       <div class="people">${(t.members||[]).map(n=>`<span class="person ${n===m?'me-p':''} ${S.confirmMember===n?'confirm':''}">${esc(n)}${n===m?' (ты)':''}${admins(t).includes(n)?' · админ':''}<button data-act="rm-member" data-name="${esc(n)}" aria-label="${S.confirmMember===n?'Точно удалить':'Удалить'} ${esc(n)}">${S.confirmMember===n?'✓':'×'}</button></span>`).join('')}</div>
+      <p class="hint">Админы (удаляют дни, меняют даты): ${esc(admins(t).join(', '))}${isAdmin()?' <button class="linkbtn" data-act="edit-admins">Изменить</button>':''}</p>
       ${S.confirmMember?`<p class="hint">Нажми ✓ ещё раз, чтобы убрать ${esc(S.confirmMember)} из поездки. Голоса останутся.</p>`:''}
       <form class="row" data-form="add-member"><input class="search" id="new-member" placeholder="Имя нового участника" autocomplete="off" style="flex:1"><button class="btn" type="submit">Добавить</button></form>
       <p class="hint">Чтобы позвать человека, просто отправь ему ссылку на это приложение. Регистрация не нужна: он выберет своё имя из списка.</p></section>
@@ -883,6 +884,22 @@ function openDayPicker(day){
     <div class="pick-list">${cands.length?cands.map(({p,d})=>{const c=CAT[p.category]||CAT.other; return `<button class="pick-item" data-act="plan-add" data-id="${esc(p.id)}" data-day="${esc(day)}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="nm">${esc(p.name)}<span>${[p.area&&esc(p.area), 'голоса '+(score(p)>0?'+':'')+score(p), d!=null?km(d)+' от дня':''].filter(Boolean).join(' · ')}</span></div><span class="btn small">Добавить</span></button>`}).join(''):'<p class="hint">Все идеи уже разложены по дням. Добавь новые места во вкладке «Места».</p>'}</div>
     <div class="sheet-actions"><button class="btn ghost" data-act="close-sheet">Готово</button></div>`);
 }
+function openAdminsForm(){
+  const t=trip(); const sel=new Set(admins(t).filter(n=>(t.members||[]).includes(n)));
+  openSheet(`<h2>Админы</h2><p class="hint" style="margin-bottom:12px">Админы удаляют дни, меняют даты поездки и назначают других админов.</p>
+    <div class="people" id="adm">${(t.members||[]).map(n=>`<button type="button" class="chip nobullet" data-adm="${esc(n)}" aria-pressed="${sel.has(n)}">${esc(n)}</button>`).join('')}</div>
+    <div class="sheet-actions" style="margin-top:14px"><button class="btn primary" data-fact="save">Сохранить</button><button class="btn ghost" data-act="close-sheet">Отмена</button></div>`, sheet=>{
+    sheet.addEventListener('click',async e=>{
+      const c=e.target.closest('[data-adm]');
+      if(c){ const n=c.dataset.adm; if(sel.has(n)) sel.delete(n); else sel.add(n); c.setAttribute('aria-pressed',sel.has(n)); return; }
+      if(e.target.closest('[data-fact="save"]')){
+        if(!sel.size){ toast('Нужен хотя бы один админ'); return; }
+        const list=(t.members||[]).filter(n=>sel.has(n)); closeSheet();
+        await write(()=>tripRef(t.id).update({admins:list}),'Админы: '+list.join(', '));
+      }
+    });
+  });
+}
 function openAddDay(){
   const t=trip(); const days=(t.days||[]).slice().sort(); const def=days.length?addDays(days[days.length-1],1):todayISO();
   openSheet(`<h2>Добавить день</h2><form data-form="add-day"><div class="field"><label for="d-date">Дата</label><input id="d-date" type="date" value="${esc(def)}" required></div><div class="sheet-actions"><button class="btn primary" type="submit">Добавить</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button></div></form>`);
@@ -935,6 +952,7 @@ document.addEventListener('click', async e=>{
     case 'fit': mainMap.fit(mapList(),t.center); break;
     case 'day-map': S.scroll[S.tab]=$('#main').scrollTop; S.tab='map'; S.mapDay=a.dataset.day; S.mapSel=null; render(); mainMap.fit(dayStops(a.dataset.day),t.center); break;
     case 'add-day': openAddDay(); break;
+    case 'edit-admins': if(isAdmin()) openAdminsForm(); break;
     case 'add-to-day': openDayPicker(a.dataset.day); break;
     case 'plan-add': { const d=a.dataset.day; const order=dayStops(d).reduce((m,p)=>Math.max(m,p.order??0),0)+1; a.closest('.pick-item').remove(); await write(()=>placeRef(id).update({day:d,order})); break; }
     case 'close-sheet': closeSheet(); break;
