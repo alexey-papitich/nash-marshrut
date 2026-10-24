@@ -351,7 +351,7 @@ document.addEventListener('focusout',()=>{ if(S.stale){ S.stale=false; setTimeou
 /* ---------- place search (OpenStreetMap) ---------- */
 // URL веб-приложения из google-maps-resolver.gs (…/exec). Разворачивает короткие ссылки maps.app.goo.gl:
 // браузер сам не может (CORS). Пусто — такие ссылки ищем по названию.
-const RESOLVER = '';
+const RESOLVER = 'https://script.google.com/macros/s/AKfycbzpF3itr_QbM8GMxa4Mfk4cnIxWieXGyiC7PRAr0a6SFoKV2vLrjCz7_FzP9P5nF5jK/exec';
 const isGmaps = s => /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.)/i.test(String(s||''));
 async function resolveLink(link){
   if(!RESOLVER||!isGmaps(link)) return null;
