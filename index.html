@@ -749,7 +749,7 @@ function openPlaceForm(p,opts={}){
       ${base?'':`<p class="hint" style="margin:-4px 0 12px">Это жильё, аэропорт или точка сбора? <button type="button" class="linkbtn" data-fact="as-base">Сделать опорной точкой</button></p>`}
       <details class="more" ${base?'hidden':''} ${d.price||d.duration||d.booking||d.indoor?'open':''}><summary>Подробности: цена, время, бронь</summary>
         <div class="two" style="margin-top:8px"><div class="field"><label for="f-price">Цена</label><select id="f-price">${['','бесплатно','$','$$','$$$'].map(x=>`<option value="${x}" ${d.price===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
-        <div class="field"><label for="f-dur">Сколько времени, мин</label><input id="f-dur" type="number" min="0" step="15" inputmode="numeric" value="${dur(d)||''}"></div></div>
+        <div class="field"><label for="f-dur">Сколько времени, мин</label><input id="f-dur" type="number" min="0" step="1" inputmode="numeric" placeholder="например, 80" value="${dur(d)||''}"></div></div>
         <label class="check"><input type="checkbox" id="f-book" ${d.booking?'checked':''}> Нужна бронь или билеты</label>
         <label class="check"><input type="checkbox" id="f-indoor" ${d.indoor?'checked':''}> В помещении (подходит на дождь)</label>
       </details>
