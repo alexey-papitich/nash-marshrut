@@ -252,6 +252,15 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 .cross{z-index:500}
 .find-res{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
 .find-res.warn{border-left:4px solid var(--taxi)}
+.menu{display:flex;flex-direction:column;gap:6px}
+.mi{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-weight:500;font-size:15px;text-align:left;text-decoration:none}
+.mi.danger{color:var(--danger)}
+.btn.more{min-width:44px;justify-content:center;font-size:18px;letter-spacing:1px;padding-left:10px;padding-right:10px}
+.sign{border:0;font:inherit;text-align:left;cursor:pointer}
+.sign-in{position:relative;padding-right:26px!important}
+.sign-in .chev{position:absolute;right:8px;top:50%;width:12px;height:12px;margin-top:-6px;stroke:#fff;fill:none;stroke-width:2.4;opacity:.9}
+.chip.fbtn{padding-left:12px}
+@media (hover:none){.map-zoom [data-act="zin"],.map-zoom [data-act="zout"]{display:none}} /* на телефоне масштаб щипком */
 .linkbtn{border:0;background:none;padding:6px 0;color:var(--accent);font-weight:500;text-decoration:underline;text-underline-offset:2px}
 .inrow{display:flex;gap:8px}.inrow input{flex:1;min-width:0}
 .fmap{width:100%;height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:pointer}
@@ -424,7 +433,7 @@ function catOf(a){ // тип объекта OSM → наша категория
   if(/^(restaurant|fast_food|food_court|ice_cream|bakery|deli|pastry|confectionery|cheese|seafood)$/.test(t)) return 'food';
   if(/^(museum|gallery|arts_centre)$/.test(t)) return 'museum';
   if(t==='viewpoint'||(c==='tourism'&&t==='attraction')) return 'view';
-  if((c==='leisure'&&/^(park|garden|nature_reserve)$/.test(t))||c==='historic') return 'walk';
+  if((c==='leisure'&&/^(park|garden|nature_reserve)$/.test(t))||c==='historic'||(c==='place'&&/^(neighbourhood|suburb|quarter|city_block)$/.test(t))||c==='boundary') return 'walk'; // районы вроде SoHo — прогулка
   if(c==='shop'||/^(mall|marketplace)$/.test(t)) return 'shop';
   return '';
 }
@@ -505,7 +514,7 @@ function locate(cb){
     S.here={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy};
     [mainMap,pickMap].forEach(m=>m&&m.setHere(S.here));
     const w=geoWaiters; geoWaiters=[]; w.forEach(f=>f(S.here));
-    if(!hereShown||haversine(hereShown,S.here)>0.05){ hereShown=S.here; if(selectOpen()) S.stale=true; else if(S.tab==='places') renderList(); else if(S.tab==='map') renderMapCard(); } // не дёргать список на каждые пару метров
+    if(!hereShown||haversine(hereShown,S.here)>0.05){ hereShown=S.here; if(S.f.sort==='near') S.listKey=null; if(selectOpen()) S.stale=true; else if(S.tab==='places') renderList(); else if(S.tab==='map') renderMapCard(); } // не дёргать список на каждые пару метров
   }, err=>{
     navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[];
     toast(err.code===1?'Нет доступа к геолокации. Разреши его для браузера в настройках.':'Не получилось определить, где ты');
@@ -520,7 +529,7 @@ const ICONS = {
   plan:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   trip:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2c2.9.2 5.5 2.5 5.5 5.8"/></svg>'
 };
-const TAB_L = {places:'Места',map:'Карта',plan:'План',trip:'Поездка'};
+const TAB_L = {places:'Места',map:'Карта',plan:'План'}; // «Поездка» открывается тапом по табличке в шапке
 const LOCATE_SVG = '<svg viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>';
 
 function renderTop(){
@@ -528,7 +537,7 @@ function renderTop(){
   const days=t?(t.days||[]).slice().sort():[]; const ti=days.indexOf(todayISO());
   const dates = ti>=0 ? `день ${ti+1} из ${days.length}` : days.length ? `${fmtDay(days[0])} – ${fmtDay(days[days.length-1])}` : '';
   $('#net').hidden=!S.offline;
-  $('#top').innerHTML = `<div class="sign"><div class="sign-in"><span class="trip-name">${esc(t?t.name:'Наш маршрут')}</span><span class="trip-meta">${esc(t?[dates,(t.members||[]).length+' чел.'].filter(Boolean).join(' · '):'')}</span></div></div>
+  $('#top').innerHTML = `<button class="sign" data-act="tab" data-tab="trip" aria-label="Поездка: участники и настройки"><div class="sign-in"><svg class="chev" viewBox="0 0 12 12"><path d="M3 4.5 6 7.5 9 4.5"/></svg><span class="trip-name">${esc(t?t.name:'Наш маршрут')}</span><span class="trip-meta">${esc(t?[dates,(t.members||[]).length+' чел.'].filter(Boolean).join(' · '):'')}</span></div></button>
   ${t?`<button class="me" data-act="pick-me" aria-label="Кто ты">${m?esc(m):'Кто ты?'}</button>`:''}`;
 }
 function renderTabs(){
@@ -554,7 +563,13 @@ function filteredPlaces(){
   const q=S.f.q.trim().toLowerCase();
   let l=tripPlaces().filter(p=>(S.f.cat==='all'||catId(p)===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
   const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a), near:(a,b)=>(fromMe(a)??1e9)-(fromMe(b)??1e9)||score(b)-score(a)};
-  return l.sort(by[S.f.sort]||by.votes);
+  l.sort(by[S.f.sort]||by.votes);
+  // Пока ты на вкладке, порядок не прыгает от голосов (своих и чужих): пересортировка при входе на вкладку и смене фильтров
+  const key=JSON.stringify([S.tripId,S.f]);
+  if(key!==S.listKey){ S.listKey=key; S.listOrder=l.map(p=>p.id); return l; }
+  const pos=new Map(S.listOrder.map((id,i)=>[id,i])); const fresh=l.filter(p=>!pos.has(p.id));
+  const kept=l.filter(p=>pos.has(p.id)).sort((a,b)=>pos.get(a.id)-pos.get(b.id));
+  const out=fresh.concat(kept); S.listOrder=out.map(p=>p.id); return out;
 }
 function catChips(counts){
   const all=tripPlaces().length;
@@ -570,9 +585,9 @@ function renderPlaces(){
   $('#ban').innerHTML=banners();
   const counts={}; tripPlaces().forEach(p=>counts[catId(p)]=(counts[catId(p)]||0)+1);
   $('#cats').innerHTML=catChips(counts);
-  $('#f2').innerHTML=`<div class="seg" role="group" aria-label="Статус">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div>
-    <select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>
-    <button class="chip qf" data-act="qf" data-k="indoor" aria-pressed="${S.f.indoor}">На дождь</button><button class="chip qf" data-act="qf" data-k="short" aria-pressed="${S.f.short}">До часа</button>`;
+  const nf=(S.f.status!=='all')+S.f.indoor+S.f.short;
+  $('#f2').innerHTML=`<select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>
+    <button class="chip fbtn" data-act="filters" aria-pressed="${nf>0}">Фильтры${nf?` <span class="n">${nf}</span>`:''}</button>`;
   renderList();
 }
 function renderList(){
@@ -592,7 +607,6 @@ function cardHTML(p){
   const far=fromMe(p);
   const facts=[far!=null?km(far)+' от тебя':'', p.price, dur(p)?`~${dur(p)} мин`:'', p.booking?'нужна бронь':'', p.indoor===true?'в помещении':''].filter(Boolean);
   const voters=VOTES.filter(x=>v[x.v].length).map(x=>`${x.label}: ${v[x.v].map(esc).join(', ')}`).join(' · ');
-  const link=safeUrl(p.link);
   return `<article class="card" id="p-${esc(p.id)}">
     <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}" title="${c.name}">${c.l}</span><div class="ttl"><h3>${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area), p.addedBy&&('добавил(а) '+esc(p.addedBy))].filter(Boolean).join(' · ')}</div></div><span class="status ${st}">${STATUS_L[st]}</span></div>
     ${p.why?`<p class="why">${esc(p.why)}</p>`:''}
@@ -601,10 +615,7 @@ function cardHTML(p){
     <div class="votes">${voteButtons(p)}${voters?`<div class="voters">${voters}</div>`:''}</div>
     <div class="card-f"><select class="sel" data-act="set-day" data-id="${esc(p.id)}" aria-label="День">${dayOptions(p)}</select>
       <button class="btn small ghost" data-act="done" data-id="${esc(p.id)}" aria-pressed="${!!p.done}">${p.done?'✓ Были':'Были'}</button>
-      ${hasPt(p)?`<button class="btn small ghost" data-act="show-map" data-id="${esc(p.id)}">На карте</button>`:''}
-      <a href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a>
-      ${link&&!isGmaps(link)?`<a href="${esc(link)}" target="_blank" rel="noopener">Ссылка</a>`:''}
-      <span class="spacer"></span><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div>
+      <span class="spacer"></span><button class="btn small ghost more" data-act="place-menu" data-id="${esc(p.id)}" aria-label="Ещё">⋯</button></div>
   </article>`;
 }
 
@@ -685,7 +696,7 @@ function renderPlan(){
     h+=`<section class="day ${when}" ${when==='today'?'id="day-today"':''}><div class="day-h"><h3>${esc(fmtDay(d,true))}</h3>${when==='today'?'<span class="today-b">Сегодня</span>':''}<span class="meta">${st.length} ${plural(st.length,'место','места','мест')}${total?` · ${km(total)} по прямой`:''}${mins?` · ~${String(Math.round(mins/6)/10).replace('.',',')} ч`:''}</span>${areas.length?`<span class="sub" style="width:100%">${areas.map(esc).join(', ')}</span>`:''}</div>
       ${st.length?`<ol class="stops">${st.map((p,i)=>{ const prev=i>0?st[i-1]:home; const leg=prev&&hasPt(prev)&&hasPt(p)?haversine(prev,p):null; const c=CAT[p.category]||CAT.other; const tag=hasPt(p)?'button':'div'; return `<li class="stop"><span class="num ${p.done?'done':''}">${i+1}</span><${tag} class="nm" ${hasPt(p)?`data-act="show-map" data-id="${esc(p.id)}"`:''}><b>${esc(p.name)}</b><span>${c.name}${p.area?' · '+esc(p.area):''}${dur(p)?' · ~'+dur(p)+' мин':''}${p.booking?' · бронь':''}</span>${leg!=null?`<span class="leg">${i>0?'↑ '+km(leg)+' от предыдущего':km(leg)+' от жилья'}</span>`:''}</${tag}>
         <span class="mv"><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="-1" ${i===0?'disabled':''} aria-label="Выше">↑</button><button class="ico" data-act="mv" data-id="${esc(p.id)}" data-dir="1" ${i===st.length-1?'disabled':''} aria-label="Ниже">↓</button></span><button class="ico" data-act="unplan" data-id="${esc(p.id)}" aria-label="Убрать из дня">×</button></li>`; }).join('')}</ol>`:`<p class="hint" style="padding:12px">Пока ничего. Добавь места из списка идей.</p>`}
-      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${esc(d)}">+ Место</button>${st.some(hasPt)?`<button class="btn small" data-act="day-map" data-day="${esc(d)}">Карта дня</button>`:''}${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">${home?'Маршрут от жилья':'Маршрут в Google Maps'}</a>`:''}${st.length>(home?1:2)?`<button class="btn small ghost" data-act="sort-day" data-day="${esc(d)}">Упорядочить по пути</button>`:''}<span class="spacer"></span>${isAdmin()?`<button class="btn small ghost danger" data-act="rm-day" data-day="${esc(d)}">Удалить день</button>`:''}</div></section>`;
+      <div class="day-f"><button class="btn small primary" data-act="add-to-day" data-day="${esc(d)}">+ Место</button>${dir?`<a class="btn small" href="${esc(dir)}" target="_blank" rel="noopener">${home?'Маршрут от жилья':'Маршрут'}</a>`:''}<span class="spacer"></span>${st.some(hasPt)||isAdmin()?`<button class="btn small ghost more" data-act="day-menu" data-day="${esc(d)}" aria-label="Ещё">⋯</button>`:''}</div></section>`;
   }
   if(days.length) h+=`<div class="row"><button class="btn" data-act="add-day">+ Добавить день</button><span class="hint">Идей без дня: ${ideas}</span></div>`;
   h+=`</div>`; main.innerHTML=h;
@@ -705,6 +716,7 @@ function renderTrip(){
   const main=$('#main'); main.dataset.view='trip'; const t=trip(); const m=me();
   const days=(t.days||[]).slice().sort();
   main.innerHTML=`<div class="wrap">${banners()}
+    <div class="row" style="margin:4px 0 10px"><button class="btn small ghost" data-act="tab" data-tab="${esc(S.prevTab||'places')}">← Назад</button></div>
     <section class="panel"><div class="row"><h2>${esc(t.name)}</h2><span class="spacer"></span><button class="btn small" data-act="edit-trip">Изменить</button></div>
       <p class="hint">${esc(t.city||'')}${days.length?` · ${esc(fmtDay(days[0],true))} — ${esc(fmtDay(days[days.length-1],true))} · ${days.length} ${plural(days.length,'день','дня','дней')}`:' · даты не указаны'}</p></section>
     ${basesPanel()}
@@ -736,6 +748,27 @@ function nagAnya(){
   openSheet(`<div class="nag"><div class="nag-t"><span>Аня,<br>заполни план</span></div><p class="hint">Разложи места по дням во вкладке «План». Все ждут 🙂</p>
     <div class="sheet-actions"><button class="btn primary" data-act="nag-go">Открыть план</button><button class="btn ghost" data-act="close-sheet">Позже</button></div></div>`);
 }
+// Меню «⋯»: редкие действия. items: {label, act?, data?, href?, danger?, confirm?}. confirm — текст второго нажатия.
+// Статус и «На дождь / До часа» — в листе, чтобы не занимать строки над списком. Применяется сразу.
+function openFilters(){
+  const html=()=>`<h2>Фильтры</h2>
+    <div class="field"><span class="lab">Что показать</span><div class="seg" role="group">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div></div>
+    <div class="field"><span class="lab">Только</span><div class="chips" style="flex-wrap:wrap"><button class="chip qf" data-act="qf" data-k="indoor" aria-pressed="${S.f.indoor}">На дождь</button><button class="chip qf" data-act="qf" data-k="short" aria-pressed="${S.f.short}">До часа</button></div>
+      <p class="hint" style="margin-top:6px">«До часа» — только где указано время, «На дождь» — где отмечено «в помещении».</p></div>
+    <div class="sheet-actions"><button class="btn primary" data-act="close-sheet">Готово</button><button class="btn ghost" data-fact="freset">Сбросить</button></div>`;
+  openSheet(html(), sheet=>sheet.addEventListener('click',e=>{
+    if(e.target.closest('[data-fact="freset"]')){ Object.assign(S.f,{status:'all',indoor:false,short:false}); render(); }
+    if(e.target.closest('[data-act="status"],[data-act="qf"],[data-fact="freset"]')) setTimeout(()=>{ if(sheet.isConnected) sheet.innerHTML=html(); },0); // после общего обработчика
+  }));
+}
+function openMenu(title, items){
+  openSheet(`<h2>${esc(title)}</h2><div class="menu">${items.map(it=>{
+    const data=Object.entries(it.data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('');
+    return it.href ? `<a class="mi" href="${esc(it.href)}" target="_blank" rel="noopener">${esc(it.label)}</a>`
+      : `<button class="mi ${it.danger?'danger':''}" data-act="${esc(it.act)}"${data}${it.confirm?` data-confirm="${esc(it.confirm)}"`:''}>${esc(it.label)}</button>`; }).join('')}</div>
+    <div class="sheet-actions" style="margin-top:12px"><button class="btn ghost" data-act="close-sheet">Закрыть</button></div>`,
+    sheet=>sheet.querySelectorAll('a.mi').forEach(x=>x.addEventListener('click',()=>setTimeout(closeSheet,0))));
+}
 function openMePicker(){
   const t=trip(); if(!t) return;
   openSheet(`<h2>Кто ты?</h2><p class="hint" style="margin-bottom:12px">Нужно, чтобы подписывать твои места и голоса. Запомню на этом телефоне.</p>
@@ -745,7 +778,7 @@ function openMePicker(){
 
 function openPlaceForm(p,opts={}){
   const t=trip(); const isNew=!(p&&p.id); const base=!!opts.base||isBase(p);
-  const d = Object.assign({name:'',category:'food',area:'',address:'',why:'',link:'',lat:null,lng:null,price:'',duration:null,booking:false,indoor:null}, p?JSON.parse(JSON.stringify(p)):{});
+  const d = Object.assign({name:'',category:'',area:'',address:'',why:'',link:'',lat:null,lng:null,price:'',duration:null,booking:false,indoor:null}, p?JSON.parse(JSON.stringify(p)):{});
   if(base&&!BASE[d.baseType]) d.baseType=guessBaseType(d.name);
   let src = hasPt(d) ? 'saved' : '', catTouched = !isNew;
   const PT_L = {saved:'Точка на карте есть', link:'Точка из ссылки Google Maps ✓', google:'Точка из Google Maps ✓', search:'Точка найдена по названию. Проверь, та ли', manual:'Точка поставлена вручную'};
@@ -846,7 +879,7 @@ function openPlaceForm(p,opts={}){
     });
     sheet.querySelector('form').addEventListener('submit', async e=>{
       e.preventDefault(); read(); if(!d.name){ $('#f-name').focus(); return; }
-      const body={tripId:t.id,name:d.name,category:d.category,area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:dur(d)||null,booking:!!d.booking,indoor:!!d.indoor};
+      const body={tripId:t.id,name:d.name,category:CAT[d.category]?d.category:'other',area:d.area,address:d.address,why:d.why,link:d.link,lat:hasPt(d)?d.lat:null,lng:hasPt(d)?d.lng:null,price:d.price||'',duration:dur(d)||null,booking:!!d.booking,indoor:!!d.indoor};
       if(base) Object.assign(body,{kind:'base',baseType:d.baseType,category:'other',day:'',done:false});
       closeSheet();
       if(isNew&&base){ await write(()=>placeRef(newId('p')).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),order:0,votes:{}}),'Опорная точка добавлена'); }
@@ -920,9 +953,12 @@ function openTripForm(existing){
 document.addEventListener('click', async e=>{
   const a=e.target.closest('[data-act]'); if(!a) return; const act=a.dataset.act; const id=a.dataset.id;
   const t=trip();
+  if(a.classList.contains('mi')){ if(a.dataset.confirm&&a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent=a.dataset.confirm; return; } closeSheet(); } // пункт меню: опасное — со второго нажатия
   switch(act){
     case 'tab': {
-      const main=$('#main'), prev=S.tab; S.scroll[prev]=main.scrollTop; S.tab=a.dataset.tab; render();
+      const main=$('#main'), prev=S.tab; let to=a.dataset.tab;
+      if(to==='trip'){ if(prev==='trip') to=S.prevTab||'places'; else S.prevTab=prev; } // табличка в шапке: открыть «Поездку», повторный тап — назад
+      S.scroll[prev]=main.scrollTop; S.tab=to; if(to==='places'&&prev!=='places') S.listKey=null; render();
       if(S.tab==='plan'&&prev!=='plan'){ const td=$('#day-today'); if(td) td.scrollIntoView({block:'start'}); else main.scrollTop=0; }
       else if(S.tab!==prev) main.scrollTop=S.scroll[S.tab]||0;
       break; }
@@ -933,6 +969,14 @@ document.addEventListener('click', async e=>{
     case 'cat': S.f.cat=a.dataset.cat; render(); break;
     case 'status': S.f.status=a.dataset.st; render(); break;
     case 'qf': S.f[a.dataset.k]=!S.f[a.dataset.k]; render(); break;
+    case 'filters': openFilters(); break;
+    case 'day-menu': { const d=a.dataset.day, st=dayStops(d), home=homeFor(st);
+      openMenu(fmtDay(d,true),[ st.some(hasPt)&&{label:'Карта дня',act:'day-map',data:{day:d}},
+        st.filter(hasPt).length>=(home?2:3)&&{label:home?'Упорядочить по пути от жилья':'Упорядочить по пути',act:'sort-day',data:{day:d}},
+        isAdmin()&&{label:'Удалить день',act:'rm-day',data:{day:d},danger:true,confirm:'Точно удалить день? Места вернутся в идеи'} ].filter(Boolean)); break; }
+    case 'place-menu': { const p=findAny(id); if(!p) return; const l=safeUrl(p.link), city=t.city;
+      openMenu(p.name,[ hasPt(p)&&{label:'Показать на карте',act:'show-map',data:{id}}, hasPt(p)&&{label:'Как добраться',href:goUrl(p,city)},
+        {label:'Открыть в Google Maps',href:gmUrl(p,city)}, l&&!isGmaps(l)&&{label:'Ссылка',href:l}, {label:'Изменить',act:'edit',data:{id}} ].filter(Boolean)); break; }
     case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:'',indoor:false,short:false}; const q=$('#q'); if(q) q.value=''; render(); break; }
     case 'vote': {
       const m=me(); if(!m){ openMePicker(); return; }
@@ -963,8 +1007,7 @@ document.addEventListener('click', async e=>{
       const arr=st.slice(); [arr[i],arr[j]]=[arr[j],arr[i]];
       await reorder(arr); break; }
     case 'sort-day': {
-      // Пересборка стирает ручной порядок: сначала подтверждение, потом можно вернуть
-      if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно пересобрать?'; setTimeout(()=>{ if(a.isConnected){ a.dataset.armed=''; a.textContent='Упорядочить по пути'; } },4000); return; }
+      // Пересборка стирает ручной порядок: она спрятана в «⋯» дня и её можно вернуть из тоста
       const st=dayStops(a.dataset.day); const before=st.map(p=>['places',p.id,{order:p.order??0}]); const withPt=st.filter(hasPt), without=st.filter(p=>!hasPt(p)); const home=homeFor(st);
       if(withPt.length<(home?2:3)){ toast('Нужно хотя бы '+(home?2:3)+' места с точками'); return; }
       const route=[], left=withPt.slice(); let last=home||left.shift(); if(!home) route.push(last);
@@ -972,7 +1015,7 @@ document.addEventListener('click', async e=>{
       await reorder(route.concat(without));
       toast(home?'Порядок пересобран от жилья.':'Порядок пересобран от первого места.',{label:'Вернуть как было',fn:()=>write(()=>batch(before),'Порядок возвращён')}); break; }
     case 'rm-day': { if(!isAdmin()){ toast('Удалять дни может только админ: '+admins(t).join(', ')); return; }
-      const d=a.dataset.day; if(a.dataset.armed!=='1'){ a.dataset.armed='1'; a.textContent='Точно удалить?'; return; }
+      const d=a.dataset.day; // подтверждение — вторым нажатием в меню
       const ops=dayStops(d).map(p=>['places',p.id,{day:''}]); ops.push(['trips',t.id,{days:(t.days||[]).filter(x=>x!==d)}]);
       await write(()=>batch(ops),'День удалён'); break; }
     case 'edit-trip': openTripForm(t); break;
