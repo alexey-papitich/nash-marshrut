@@ -263,6 +263,13 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 .exp .nm{flex:1;min-width:0}.exp .nm b{display:block;font-weight:500;overflow-wrap:anywhere}.exp .nm span{font-size:12px;color:var(--muted)}
 .exp.tr{background:transparent;border-style:dashed}
 .field input.amt-in{font-size:28px;font-family:var(--f-mono);font-weight:500;padding:8px 12px}
+.lpin.ppin{width:0!important;height:0!important}
+.pp{position:absolute;left:0;top:0;transform:translate(-50%,-50%);white-space:nowrap;background:var(--pc);color:#fff;font:600 12px/1 var(--f-body);padding:6px 9px;border-radius:999px;border:2px solid var(--surface);box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.pp.stale{opacity:.55;filter:grayscale(.6)}
+.pp.sel{outline:3px solid var(--taxi);outline-offset:1px}
+.pp.inline{position:static;transform:none;display:inline-block;flex:none}
+.map-zoom button[hidden]{display:none}
+.map-zoom button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .menu{display:flex;flex-direction:column;gap:6px}
 .mi{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-weight:500;font-size:15px;text-align:left;text-decoration:none}
 .mi.danger{color:var(--danger)}
@@ -362,7 +369,7 @@ const S = {
   tripId: LS.get('trip',null), tab:'places',
   f:{cat:'all',status:'all',sort:'votes',q:'',indoor:false,short:false},
   mapDay:'all', mapSel:null, confirmMember:null,
-  offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false, expenses:[], moneyErr:false
+  offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false, expenses:[], moneyErr:false, people:[]
 };
 const trip = () => S.trips.find(t=>t.id===S.tripId) || null;
 // Опорные точки (kind:'base'): жильё, аэропорт, точка сбора. Не голосуются, не в плане, всегда на карте.
@@ -485,7 +492,7 @@ class LMap{
     // Вид задаём сразу: слои, добавленные в карту без вида, Leaflet потом не может отрисовать (падает на 'load')
     const c=hasPt(center)?center:{lat:40.742,lng:-73.975};
     this.map=L.map(host,{zoomControl:false,attributionControl:true,center:[c.lat,c.lng],zoom:13});
-    tiles().addTo(this.map); this.layer=L.layerGroup().addTo(this.map); this.hereL=L.layerGroup().addTo(this.map); this.routeL=null; this.onTap=null;
+    tiles().addTo(this.map); this.layer=L.layerGroup().addTo(this.map); this.hereL=L.layerGroup().addTo(this.map); this.peopleL=L.layerGroup().addTo(this.map); this.routeL=null; this.onTap=null;
     this.map.on('click',()=>{ if(this.onTap) this.onTap(null); });
     this.inited=false; this.setHere(S.here);
   }
@@ -493,6 +500,13 @@ class LMap{
     this.hereL.clearLayers(); if(!h) return;
     if(h.acc>30) L.circle([h.lat,h.lng],{radius:Math.min(h.acc,2000),color:'#1a73e8',weight:1,fillOpacity:.1,interactive:false}).addTo(this.hereL);
     L.circleMarker([h.lat,h.lng],{radius:7,color:'#fff',weight:3,fillColor:'#1a73e8',fillOpacity:1,interactive:false}).addTo(this.hereL);
+  }
+  setPeople(list,sel){
+    this.peopleL.clearLayers(); const now=Date.now();
+    for(const p of list){
+      const icon=L.divIcon({className:'lpin ppin',html:`<span class="pp ${now-(p.ts||0)>10*60000?'stale':''} ${sel==='@'+p.name?'sel':''}" style="--pc:${personColor(p.name)}">${esc(p.name)}</span>`,iconSize:[0,0],iconAnchor:[0,0]});
+      L.marker([p.lat,p.lng],{icon,zIndexOffset:2000,keyboard:true,title:p.name}).addTo(this.peopleL).on('click',e=>{ L.DomEvent.stopPropagation(e); if(this.onTap) this.onTap('@'+p.name); });
+    }
   }
   home(center){ const c=hasPt(center)?center:{lat:40.742,lng:-73.975}; this.map.setView([c.lat,c.lng],13); this.inited=true; }
   setPins(list,{sel,numbered,route,dimIds,bases}={}){
@@ -525,14 +539,50 @@ function locate(cb){
   geoWatch=navigator.geolocation.watchPosition(pos=>{
     S.here={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:pos.coords.accuracy};
     [mainMap,pickMap].forEach(m=>m&&m.setHere(S.here));
-    const w=geoWaiters; geoWaiters=[]; w.forEach(f=>f(S.here));
+    const w=geoWaiters; geoWaiters=[]; w.forEach(f=>f(S.here)); liveTick();
     if(!hereShown||haversine(hereShown,S.here)>0.05){ hereShown=S.here; if(S.f.sort==='near') S.listKey=null; if(selectOpen()) S.stale=true; else if(S.tab==='places') renderList(); else if(S.tab==='map') renderMapCard(); } // не дёргать список на каждые пару метров
   }, err=>{
-    navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[];
-    toast(err.code===1?'Нет доступа к геолокации. Разреши его для браузера в настройках.':'Не получилось определить, где ты');
+    // Временные сбои (тоннель, метро, таймаут) — watch продолжает работать сам, ждём. Останавливаемся только при запрете доступа.
+    if(err.code===1){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[]; toast('Нет доступа к геолокации. Разреши его для браузера в настройках.'); if(sharing()){ LS.set('live:'+S.tripId,false); updateLiveBtn(); } }
+    else if(geoWaiters.length&&!S.here){ geoWaiters=[]; toast('Не получилось определить, где ты'); }
   }, {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
 }
 const fromMe = p => S.here&&hasPt(p) ? haversine(S.here,p) : null;
+
+/* ---------- люди на карте (коллекция live, по документу на участника) ---------- */
+// Пишем раз в 7 с, пока человек двигается, иначе раз в минуту (чтобы видно было «сейчас»). Без сети не пишем: очередь
+// из сотен точек улетела бы разом после метро. Потолок записей в день на телефон бережёт бесплатный лимит Firestore.
+const LIVE_MS=7000, LIVE_IDLE_MS=60000, LIVE_DAY_CAP=2500;
+const liveId = (tid,n) => tid+'__'+String(n).replace(/\//g,'_');
+const sharing = () => !!(S.tripId&&me()&&LS.get('live:'+S.tripId,false));
+let liveLast=null, liveUnsub=null, liveTid=null, liveTimer=null;
+const PCOLORS=['#d9480f','#1971c2','#2f9e44','#9c36b5','#e8590c','#0c8599','#c2255c','#5f3dc4'];
+const personColor = n => { let h=0; for(const ch of String(n)) h=(h*31+ch.charCodeAt(0))>>>0; return PCOLORS[h%PCOLORS.length]; };
+function ago(ts){ const m=Math.round((Date.now()-(ts||0))/60000); return m<1?'сейчас':m<60?m+' мин назад':m<24*60?Math.round(m/60)+' ч назад':'давно'; }
+function liveTick(){
+  if(!sharing()||!S.here||!FS||S.offline) return;
+  const now=Date.now(), cnt=LS.get('liveN:'+todayISO(),0), gap=cnt>=LIVE_DAY_CAP?LIVE_IDLE_MS:LIVE_MS;
+  if(liveLast){ const dt=now-liveLast.t; if(dt<gap) return; if(dt<LIVE_IDLE_MS&&haversine(liveLast,S.here)<0.005) return; } // стоит на месте — раз в минуту
+  liveLast={t:now,lat:S.here.lat,lng:S.here.lng}; LS.set('liveN:'+todayISO(),cnt+1);
+  ref('live',liveId(S.tripId,me())).set({tripId:S.tripId,name:me(),lat:+S.here.lat.toFixed(6),lng:+S.here.lng.toFixed(6),acc:Math.round(S.here.acc||0),ts:now}).catch(liveFail);
+}
+function liveFail(e){
+  console.warn('live',e);
+  if(e&&e.code==='permission-denied'&&sharing()){ LS.set('live:'+S.tripId,false); updateLiveBtn(); toast('Пока не работает: в базе не открыт доступ для точек. Скажи Алексею.'); }
+}
+function liveStart(){ locate(()=>liveTick()); if(!liveTimer) liveTimer=setInterval(liveTick,LIVE_MS); }
+function updateLiveBtn(){ const b=$('#live-btn'); if(b){ b.setAttribute('aria-pressed',sharing()); b.setAttribute('aria-label',sharing()?'Тебя видно на карте. Нажми, чтобы скрыться':'Показывать меня на карте'); } }
+// Чужие точки слушаем, только пока открыта карта и приложение на экране
+function liveListen(){
+  const want=S.tab==='map'&&document.visibilityState!=='hidden'&&!!FS&&!!S.tripId;
+  if(liveUnsub&&(!want||liveTid!==S.tripId)){ liveUnsub(); liveUnsub=null; S.people=[]; }
+  if(want&&!liveUnsub){ liveTid=S.tripId;
+    liveUnsub=FS.collection('live').where('tripId','==',liveTid).onSnapshot(s=>{ S.people=s.docs.map(d=>d.data()).filter(x=>x&&x.name!==me()&&typeof x.lat==='number'&&typeof x.lng==='number'); drawPeople(); },
+      e=>{ console.warn('live read',e); liveUnsub=null; }); }
+}
+function drawPeople(){ if(mainMap) mainMap.setPeople(S.people||[],S.mapSel); if(S.tab==='map'&&String(S.mapSel||'').startsWith('@')) renderMapCard(); }
+document.addEventListener('visibilitychange',()=>{ liveListen(); if(document.visibilityState==='visible'){ liveLast=null; liveTick(); } });
+setInterval(()=>{ if(S.tab==='map'&&S.people&&S.people.length) drawPeople(); },30000); // обновить «N мин назад»
 
 /* ---------- render ---------- */
 const ICONS = {
@@ -567,6 +617,7 @@ function render(){
   if(S.dbState==='loading'){ main.dataset.view='loading'; main.innerHTML=`<div class="wrap"><div class="empty"><p>Загружаю общий список…</p></div></div>`; return; }
   if(!trip()){ main.dataset.view='none'; main.innerHTML=`<div class="wrap">${banners()}<div class="empty"><h2>Нет поездки</h2><p>Создай первую поездку: город, даты и кто едет.</p>${S.dbState==='ok'?'<button class="btn primary" data-act="new-trip">Новая поездка</button>':''}</div></div>`; return; }
   ({places:renderPlaces,map:renderMap,plan:renderPlan,money:renderMoney,trip:renderTrip})[S.tab]();
+  liveListen();
   if(!me() && !document.querySelector('.sheet-bg') && !S.askedMe){ S.askedMe=true; openMePicker(); }
   nagAnya();
 }
@@ -647,11 +698,11 @@ function renderMap(){
     main.dataset.view='map';
     main.innerHTML=`<div class="map-wrap"><div id="map-slot" style="position:absolute;inset:0"></div>
       <div class="map-top"><select class="sel" id="map-day" aria-label="Что показать"></select><div class="chips" id="map-cats"></div></div>
-      <div class="map-zoom"><button data-act="zin" aria-label="Приблизить">+</button><button data-act="zout" aria-label="Отдалить">−</button><button data-act="fit" aria-label="Показать все точки"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button data-act="locate" aria-label="Где я">${LOCATE_SVG}</button><button data-act="go-home" id="go-home" aria-label="Домой" hidden><svg viewBox="0 0 24 24">${BASE.home.svg}</svg></button></div>
+      <div class="map-zoom"><button data-act="zin" aria-label="Приблизить">+</button><button data-act="zout" aria-label="Отдалить">−</button><button data-act="fit" aria-label="Показать все точки"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button data-act="locate" aria-label="Где я">${LOCATE_SVG}</button><button data-act="live" id="live-btn" aria-pressed="false" aria-label="Показывать меня на карте"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3"/><path d="M6.5 19.5c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M4.6 5.5a9 9 0 0 0 0 8M19.4 5.5a9 9 0 0 1 0 8"/></svg></button><button data-act="go-home" id="go-home" aria-label="Домой" hidden><svg viewBox="0 0 24 24">${BASE.home.svg}</svg></button></div>
       <div id="map-note"></div><div id="map-card"></div></div>`;
     if(!mapHost){ mapHost=document.createElement('div'); mapHost.className='lhost'; mapHost.id='lmap'; }
     $('#map-slot').appendChild(mapHost);
-    if(!mainMap){ mainMap=new LMap(mapHost,t.center); mainMap.onTap=pid=>{ S.mapSel=pid||null; updateMapPins(); renderMapCard(); }; }
+    if(!mainMap){ mainMap=new LMap(mapHost,t.center); mainMap.onTap=pid=>{ S.mapSel=pid||null; updateMapPins(); drawPeople(); renderMapCard(); }; }
     setTimeout(()=>mainMap.map.invalidateSize(),0);
     if(mainMap.forTrip!==t.id){ mainMap.forTrip=t.id; mainMap.inited=false; }
   }
@@ -660,7 +711,7 @@ function renderMap(){
   if(S.mapDay!=='all'&&S.mapDay!=='idea'&&!days.includes(S.mapDay)) S.mapDay='all';
   $('#map-day').value=S.mapDay;
   $('#map-cats').innerHTML=catChips();
-  updateMapPins();
+  updateMapPins(); updateLiveBtn(); drawPeople();
   if(!mainMap.inited){ let l=mapList().filter(hasPt); if(!l.length) l=tripBases().filter(hasPt); if(l.length) mainMap.fit(l,t.center); else mainMap.home(t.center); }
   renderMapCard();
 }
@@ -674,7 +725,13 @@ function updateMapPins(){
 }
 function updateMapNote(){ const n=$('#map-note'); if(!n) return; const miss=mapList().filter(p=>!hasPt(p)).length; n.innerHTML = miss&&!S.mapSel ? `<div class="map-note">${miss} без точки на карте</div>`:''; }
 function renderMapCard(){
-  const el=$('#map-card'); if(!el) return; const p=findAny(S.mapSel);
+  const el=$('#map-card'); if(!el) return;
+  if(String(S.mapSel||'').startsWith('@')){ const pp=(S.people||[]).find(x=>'@'+x.name===S.mapSel); if(!pp){ el.innerHTML=''; updateMapNote(); return; } const far=fromMe(pp);
+    el.innerHTML=`<div class="map-card"><button class="x" data-act="close-card" aria-label="Закрыть">×</button>
+      <div class="card-h"><span class="pp inline" style="--pc:${personColor(pp.name)}">${esc(pp.name)}</span><div class="ttl"><div class="sub" style="padding-top:6px">${[ago(pp.ts),far!=null&&km(far)+' от тебя'].filter(Boolean).join(' · ')}</div></div></div>
+      <div class="row"><a class="btn small primary" href="${esc(goUrl(pp,''))}" target="_blank" rel="noopener">Как добраться</a></div></div>`;
+    updateMapNote(); return; }
+  const p=findAny(S.mapSel);
   if(!p){ el.innerHTML=''; updateMapNote(); return; }
   if(isBase(p)){ const far=fromMe(p);
     el.innerHTML=`<div class="map-card"><button class="x" data-act="close-card" aria-label="Закрыть">×</button>
@@ -1068,7 +1125,7 @@ document.addEventListener('click', async e=>{
       else if(S.tab!==prev) main.scrollTop=S.scroll[S.tab]||0;
       break; }
     case 'pick-me': openMePicker(); break;
-    case 'set-me': LS.set('me:'+S.tripId,a.dataset.name); closeSheet(); render(); break;
+    case 'set-me': { const old=me(); if(old&&old!==a.dataset.name&&sharing()) ref('live',liveId(S.tripId,old)).delete().catch(()=>{}); LS.set('me:'+S.tripId,a.dataset.name); liveLast=null; closeSheet(); render(); break; }
     case 'add': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openPlaceForm(null); break;
     case 'edit': { const p=findAny(id); if(p) openPlaceForm(p); else toast('Это место уже удалили'); break; }
     case 'cat': S.f.cat=a.dataset.cat; render(); break;
@@ -1100,10 +1157,16 @@ document.addEventListener('click', async e=>{
       S.scroll[S.tab]=$('#main').scrollTop; S.mapDay=S.tab==='plan'&&p.day?p.day:'all'; S.tab='map'; S.mapSel=id; S.f.cat='all'; render(); mainMap.focus(p); break; }
     case 'add-base': openPlaceForm(null,{base:true}); break;
     case 'to-base': { const p=findAny(id); if(p) await write(()=>placeRef(id).update({kind:'base',baseType:guessBaseType(p.name),day:'',done:false}),'«'+p.name+'» теперь опорная точка'); break; }
+    case 'live': {
+      if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); return; }
+      const on=!sharing(); LS.set('live:'+S.tripId,on); liveLast=null; updateLiveBtn();
+      if(on){ liveStart(); toast('Тебя видно на карте, пока приложение открыто'); }
+      else { ref('live',liveId(S.tripId,me())).delete().catch(()=>{}); toast('Тебя больше не видно на карте'); }
+      break; }
     case 'go-home': { const h=homeFor(); if(!h) return; S.mapSel=h.id; mainMap.focus(h); updateMapPins(); renderMapCard(); break; }
     case 'locate': if(!S.here) toast('Определяю, где ты…'); locate(h=>{ if(mainMap&&S.tab==='map') mainMap.map.setView([h.lat,h.lng],Math.max(mainMap.map.getZoom()||15,15)); }); break;
     case 'sel': S.mapSel=id; { const p=findAny(id); if(p) mainMap.focus(p); } updateMapPins(); renderMapCard(); break;
-    case 'close-card': S.mapSel=null; updateMapPins(); renderMapCard(); break;
+    case 'close-card': S.mapSel=null; updateMapPins(); drawPeople(); renderMapCard(); break;
     case 'zin': mainMap.map.zoomIn(); break;
     case 'zout': mainMap.map.zoomOut(); break;
     case 'fit': mainMap.fit(mapList(),t.center); break;
@@ -1179,7 +1242,7 @@ function pickTrip(){
 if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)){ const v=$('meta[name=viewport]'); if(v) v.content+=', maximum-scale=1'; }
 // Офлайн-оболочка (sw.js): без сети приложение всё равно откроется, данные даст кэш Firestore
 if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(e=>console.warn('sw',e));
-addEventListener('online',()=>{ S.offline=false; renderTop(); });
+addEventListener('online',()=>{ S.offline=false; renderTop(); liveLast=null; liveTick(); });
 addEventListener('offline',()=>{ S.offline=true; renderTop(); });
 render();
 if(!FS){ S.dbState='none'; render(); }
@@ -1192,6 +1255,7 @@ else{
     if(!S.loaded.trips) return;
     if(!S.trips.length&&!s.metadata.fromCache&&!seeded){ seeded=true; FS.collection('trips').doc(SEED_TRIP.id).set(SEED_TRIP.data).catch(err); }
     pickTrip(); if(S.loaded.places){ S.dbState='ok'; softRender(); }
+    if(sharing()&&!liveTimer) liveStart(); // делился в прошлый раз — продолжаем, пока сам не выключит
   }, err);
   FS.collection('expenses').onSnapshot(s=>{ S.expenses=s.docs.map(d=>({id:d.id,...d.data()})); S.moneyErr=false; if(S.tab==='money') softRender(); },
     e=>{ console.warn('expenses',e); S.moneyErr=true; if(S.tab==='money') render(); }); // если правила ещё не опубликованы — ломаются только деньги
