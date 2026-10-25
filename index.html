@@ -689,8 +689,11 @@ function cardHTML(p){
 /* Map */
 function mapList(){
   let l=tripPlaces().filter(p=>S.f.cat==='all'||catId(p)===S.f.cat);
-  if(S.mapDay==='idea') l=l.filter(p=>!p.day&&!p.done);
-  else if(S.mapDay!=='all') l=l.filter(p=>p.day===S.mapDay);
+  // all — по умолчанию, без тех, где уже были; every — совсем все; в режиме дня остановки все, чтобы не сбивалась нумерация
+  if(S.mapDay==='all') l=l.filter(p=>!p.done);
+  else if(S.mapDay==='idea') l=l.filter(p=>!p.day&&!p.done);
+  else if(S.mapDay==='done') l=l.filter(p=>p.done);
+  else if(S.mapDay!=='every') l=l.filter(p=>p.day===S.mapDay);
   return l;
 }
 function dayStops(d){ return tripPlaces().filter(p=>p.day===d).sort((a,b)=>(a.order??0)-(b.order??0)||(a.createdAt||'').localeCompare(b.createdAt||'')); }
@@ -710,8 +713,8 @@ function renderMap(){
     if(mainMap.forTrip!==t.id){ mainMap.forTrip=t.id; mainMap.inited=false; }
   }
   const days=(t.days||[]).slice().sort();
-  $('#map-day').innerHTML=`<option value="all">Все места</option><option value="idea">Только идеи (без дня)</option>`+days.map(d=>`<option value="${esc(d)}">${esc(fmtDay(d))} · ${dayStops(d).length}</option>`).join('');
-  if(S.mapDay!=='all'&&S.mapDay!=='idea'&&!days.includes(S.mapDay)) S.mapDay='all';
+  $('#map-day').innerHTML=`<option value="all">Ещё не были</option><option value="idea">Только идеи (без дня)</option>`+days.map(d=>`<option value="${esc(d)}">${esc(fmtDay(d))} · ${dayStops(d).length}</option>`).join('')+`<option value="done">Где уже были</option><option value="every">Все места</option>`;
+  if(!['all','idea','done','every'].includes(S.mapDay)&&!days.includes(S.mapDay)) S.mapDay='all';
   $('#map-day').value=S.mapDay;
   $('#map-cats').innerHTML=catChips();
   updateMapPins(); updateLiveBtn(); drawPeople();
@@ -721,7 +724,7 @@ function renderMap(){
 function updateMapPins(){
   if(!mainMap) return; const l=mapList();
   let numbered=null, route=null;
-  if(S.mapDay!=='all'&&S.mapDay!=='idea'){ const st=dayStops(S.mapDay); numbered={}; st.forEach((p,i)=>numbered[p.id]=i+1); route=st; }
+  if(!['all','idea','done','every'].includes(S.mapDay)){ const st=dayStops(S.mapDay); numbered={}; st.forEach((p,i)=>numbered[p.id]=i+1); route=st; }
   mainMap.setPins(l,{sel:S.mapSel,numbered,route,bases:tripBases()});
   const gh=$('#go-home'); if(gh) gh.hidden=!homeFor();
   updateMapNote();
@@ -743,7 +746,7 @@ function renderMapCard(){
       <div class="row"><a class="btn small primary" href="${esc(goUrl(p,trip().city))}" target="_blank" rel="noopener">Как добраться</a><a class="btn small" href="${esc(gmUrl(p,trip().city))}" target="_blank" rel="noopener">Google Maps</a><button class="btn small ghost" data-act="edit" data-id="${esc(p.id)}">Изменить</button></div></div>`;
     updateMapNote(); return; }
   const c=CAT[p.category]||CAT.other;
-  const near=tripPlaces().filter(x=>x.id!==p.id&&hasPt(x)&&hasPt(p)).map(x=>({x,d:haversine(p,x)})).filter(o=>o.d<=1.2).sort((a,b)=>a.d-b.d).slice(0,4);
+  const near=mapList().filter(x=>x.id!==p.id&&hasPt(x)&&hasPt(p)).map(x=>({x,d:haversine(p,x)})).filter(o=>o.d<=1.2).sort((a,b)=>a.d-b.d).slice(0,4);
   const far=fromMe(p);
   el.innerHTML=`<div class="map-card"><button class="x" data-act="close-card" aria-label="Закрыть">×</button>
     <div class="card-h"><span class="bullet ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span><div class="ttl"><h3 style="margin:0;font-size:16px;padding-right:24px">${esc(p.name)}</h3><div class="sub">${[p.area&&esc(p.area),STATUS_L[statusOf(p)],p.addedBy&&esc(p.addedBy),far!=null&&km(far)+' от тебя'].filter(Boolean).join(' · ')}</div></div></div>
@@ -1158,7 +1161,7 @@ document.addEventListener('click', async e=>{
       await write(()=>placeRef(id).update({votes:{[m]:cur===v?0:v}})); break; }
     case 'done': { const p=tripPlaces().find(x=>x.id===id); if(p) await write(()=>placeRef(id).update({done:!p.done})); break; }
     case 'show-map': { const p=findAny(id); if(!p) return;
-      S.scroll[S.tab]=$('#main').scrollTop; S.mapDay=S.tab==='plan'&&p.day?p.day:'all'; S.tab='map'; S.mapSel=id; S.f.cat='all'; render(); mainMap.focus(p); break; }
+      S.scroll[S.tab]=$('#main').scrollTop; S.mapDay=S.tab==='plan'&&p.day?p.day:(p.done?'every':'all'); S.tab='map'; S.mapSel=id; S.f.cat='all'; render(); mainMap.focus(p); break; }
     case 'add-base': openPlaceForm(null,{base:true}); break;
     case 'to-base': { const p=findAny(id); if(p) await write(()=>placeRef(id).update({kind:'base',baseType:guessBaseType(p.name),day:'',done:false}),'«'+p.name+'» теперь опорная точка'); break; }
     case 'live': {
