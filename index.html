@@ -252,6 +252,17 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 .cross{z-index:500}
 .find-res{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface-2);margin-bottom:12px}
 .find-res.warn{border-left:4px solid var(--taxi)}
+.money-me{font-family:var(--f-display);font-size:26px;font-weight:500;letter-spacing:.02em;text-transform:uppercase;line-height:1.15}
+.money-me .pos{color:var(--accent)}.money-me .neg{color:var(--danger)}
+.settle{display:flex;flex-direction:column;gap:8px}
+.st-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.st-row .who{flex:1;min-width:150px}
+.amt{font-family:var(--f-mono);font-weight:500;white-space:nowrap}
+.exps{display:flex;flex-direction:column;gap:6px}
+.exp{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px;min-height:52px}
+.exp .nm{flex:1;min-width:0}.exp .nm b{display:block;font-weight:500;overflow-wrap:anywhere}.exp .nm span{font-size:12px;color:var(--muted)}
+.exp.tr{background:transparent;border-style:dashed}
+.field input.amt-in{font-size:28px;font-family:var(--f-mono);font-weight:500;padding:8px 12px}
 .menu{display:flex;flex-direction:column;gap:6px}
 .mi{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font-weight:500;font-size:15px;text-align:left;text-decoration:none}
 .mi.danger{color:var(--danger)}
@@ -261,6 +272,7 @@ button:active,.btn:active,.chip:active,.vote:active,.ico:active{opacity:.6}
 .sign-in .chev{position:absolute;right:8px;top:50%;width:12px;height:12px;margin-top:-6px;stroke:#fff;fill:none;stroke-width:2.4;opacity:.9}
 .chip.fbtn{padding-left:12px}
 @media (hover:none){.map-zoom [data-act="zin"],.map-zoom [data-act="zout"]{display:none}} /* на телефоне масштаб щипком */
+.field .linkbtn{align-self:flex-start}
 .linkbtn{border:0;background:none;padding:6px 0;color:var(--accent);font-weight:500;text-decoration:underline;text-underline-offset:2px}
 .inrow{display:flex;gap:8px}.inrow input{flex:1;min-width:0}
 .fmap{width:100%;height:150px;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:pointer}
@@ -350,7 +362,7 @@ const S = {
   tripId: LS.get('trip',null), tab:'places',
   f:{cat:'all',status:'all',sort:'votes',q:'',indoor:false,short:false},
   mapDay:'all', mapSel:null, confirmMember:null,
-  offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false
+  offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false, expenses:[], moneyErr:false
 };
 const trip = () => S.trips.find(t=>t.id===S.tripId) || null;
 // Опорные точки (kind:'base'): жильё, аэропорт, точка сбора. Не голосуются, не в плане, всегда на карте.
@@ -379,7 +391,7 @@ const me = () => { const t=trip(); const n=t?LS.get('me:'+t.id,null):null; retur
 /* ---------- writes ---------- */
 function flatten(obj,prefix,out){ out=out||[]; prefix=prefix||[]; for(const k of Object.keys(obj)){ const v=obj[k]; if(v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length) flatten(v,prefix.concat(k),out); else out.push(new firebase.firestore.FieldPath(...prefix.concat(k)), v); } return out; }
 const ref=(col,id)=>{ const d=FS.collection(col).doc(id); return { set:data=>d.set(data), update:data=>d.update(...flatten(data)), delete:()=>d.delete() }; };
-const placeRef=id=>ref('places',id), tripRef=id=>ref('trips',id);
+const placeRef=id=>ref('places',id), tripRef=id=>ref('trips',id), expRef=id=>ref('expenses',id);
 // Несколько правок одним пакетом: [[коллекция, id, patch], ...]. Атомарно и без сети не застревает на первой.
 function batch(ops){ const b=FS.batch(); for(const [col,id,data] of ops) b.update(FS.collection(col).doc(id),...flatten(data)); return b.commit(); }
 function writeErr(e){ console.error(e); toast(e&&e.code==='permission-denied'?'База пока закрыта для записи. Владелец должен опубликовать правила.':e&&e.code==='not-found'?'Это место уже удалили.':'Не сохранилось. Проверь интернет и попробуй ещё раз.'); }
@@ -527,9 +539,10 @@ const ICONS = {
   places:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
   map:'<svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
   plan:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  money:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M15.5 15h2.5"/></svg>',
   trip:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2c2.9.2 5.5 2.5 5.5 5.8"/></svg>'
 };
-const TAB_L = {places:'Места',map:'Карта',plan:'План'}; // «Поездка» открывается тапом по табличке в шапке
+const TAB_L = {places:'Места',map:'Карта',plan:'План',money:'Деньги'}; // «Поездка» открывается тапом по табличке в шапке
 const LOCATE_SVG = '<svg viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8-8-2z"/></svg>';
 
 function renderTop(){
@@ -553,7 +566,7 @@ function render(){
   const main=$('#main');
   if(S.dbState==='loading'){ main.dataset.view='loading'; main.innerHTML=`<div class="wrap"><div class="empty"><p>Загружаю общий список…</p></div></div>`; return; }
   if(!trip()){ main.dataset.view='none'; main.innerHTML=`<div class="wrap">${banners()}<div class="empty"><h2>Нет поездки</h2><p>Создай первую поездку: город, даты и кто едет.</p>${S.dbState==='ok'?'<button class="btn primary" data-act="new-trip">Новая поездка</button>':''}</div></div>`; return; }
-  ({places:renderPlaces,map:renderMap,plan:renderPlan,trip:renderTrip})[S.tab]();
+  ({places:renderPlaces,map:renderMap,plan:renderPlan,money:renderMoney,trip:renderTrip})[S.tab]();
   if(!me() && !document.querySelector('.sheet-bg') && !S.askedMe){ S.askedMe=true; openMePicker(); }
   nagAnya();
 }
@@ -729,6 +742,98 @@ function renderTrip(){
     ${standalone()?'':`<section class="panel"><h2>Как приложение</h2><p class="hint">${/iP(hone|ad|od)/.test(navigator.userAgent)?'В Safari: «Поделиться» → «На экран «Домой»».':'В меню браузера: «Добавить на главный экран» или «Установить приложение».'} Иконка откроет «Наш маршрут» без адресной строки, и он будет работать в метро без сети: места, план и карта уже просмотренных районов. Имя выбрать нужно будет заново.</p></section>`}
     <section class="panel"><div class="row"><h2>Поездки</h2><span class="spacer"></span><button class="btn small primary" data-act="new-trip">Новая поездка</button></div>
       <div class="trips-l">${S.trips.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(x=>{ const n=S.places.filter(p=>p.tripId===x.id&&!isBase(p)).length; return `<button class="trip-row" data-act="switch-trip" data-id="${esc(x.id)}" aria-current="${x.id===S.tripId}"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b><br><span>${esc(x.city||'')} · ${(x.members||[]).length} чел. · ${n} ${plural(n,'место','места','мест')}</span></div>${x.id===S.tripId?'<span>сейчас</span>':''}</button>`; }).join('')}</div></section></div>`;
+}
+
+/* Money */
+const money = c => { const v=Math.abs(c)/100; return (c<0?'−':'')+'$'+v.toLocaleString('en-US',{minimumFractionDigits:Number.isInteger(v)?0:2,maximumFractionDigits:2}); };
+function parseMoney(s){ const x=parseFloat(String(s||'').replace(/[\s$]/g,'').replace(',','.')); return isFinite(x)&&x>0?Math.round(x*100):0; }
+// Кто в общих расходах (trip.moneyGroup). Нет поля — все участники. Тех, на кого никогда не делим (как Софию), здесь выключают.
+const moneyGroup = t => { const m=t.members||[]; const g=Array.isArray(t.moneyGroup)?t.moneyGroup.filter(n=>m.includes(n)):m; return g.length?g:m; };
+const validExp = e => e&&Number.isInteger(e.amount)&&e.amount>0&&typeof e.paidBy==='string'&&Array.isArray(e.split)&&e.split.length>0;
+const tripExpenses = () => S.expenses.filter(e=>e.tripId===S.tripId&&validExp(e));
+// Доли в центах: остаток раздаём по центу по алфавиту, чтобы у всех телефонов итоги сходились до цента
+function shares(e){ const names=[...new Set(e.split)].sort(); const base=Math.floor(e.amount/names.length); let rem=e.amount-base*names.length; return names.map(n=>[n,base+(rem-->0?1:0)]); }
+function balances(list){ const b={}; for(const e of list){ b[e.paidBy]=(b[e.paidBy]||0)+e.amount; for(const [n,x] of shares(e)) b[n]=(b[n]||0)-x; } return b; }
+// Кто кому: самый большой долг гасим самому большому получателю — переводов не больше, чем людей
+function settle(b){
+  const cr=[],db=[]; for(const [n,v] of Object.entries(b)){ if(v>0) cr.push([n,v]); if(v<0) db.push([n,-v]); }
+  cr.sort((a,b)=>b[1]-a[1]); db.sort((a,b)=>b[1]-a[1]);
+  const out=[]; let i=0,j=0; while(i<db.length&&j<cr.length){ const x=Math.min(db[i][1],cr[j][1]); out.push({from:db[i][0],to:cr[j][0],amount:x}); db[i][1]-=x; cr[j][1]-=x; if(!db[i][1]) i++; if(!cr[j][1]) j++; }
+  return out;
+}
+function renderMoney(){
+  const main=$('#main'); main.dataset.view='money'; const t=trip(); const m=me();
+  const list=tripExpenses(), b=balances(list), tr=settle(b), g=moneyGroup(t);
+  const spent=list.filter(e=>e.kind!=='transfer').reduce((x,e)=>x+e.amount,0), my=m?(b[m]||0):0;
+  const status=!m?'Выбери, кто ты':my>0?`<span class="pos">Тебе должны ${money(my)}</span>`:my<0?`<span class="neg">Ты должен ${money(-my)}</span>`:'Ты в расчёте';
+  const byDay={}; list.slice().sort((a,b)=>(b.day||'').localeCompare(a.day||'')||(b.createdAt||'').localeCompare(a.createdAt||'')).forEach(e=>(byDay[e.day||'']=byDay[e.day||'']||[]).push(e));
+  main.innerHTML=`<div class="wrap">${banners()}${S.moneyErr?'<div class="banner warn">Расходы пока закрыты в базе. Алексей публикует правила, потом обнови страницу.</div>':''}
+    <section class="panel"><div class="money-me">${status}</div>
+      <p class="hint">Всего потрачено ${money(spent)} · делим на ${g.length}: ${esc(g.join(', '))} <button class="linkbtn" data-act="money-group">Изменить</button></p>
+      <div class="row"><button class="btn primary" data-act="add-exp">+ Расход</button></div></section>
+    ${tr.length?`<section class="panel"><h2>Кто кому</h2><div class="settle">${tr.map(x=>`<div class="st-row"><span class="who"><b>${esc(x.from)}</b> → <b>${esc(x.to)}</b></span><span class="amt">${money(x.amount)}</span><button class="btn small" data-act="settle" data-from="${esc(x.from)}" data-to="${esc(x.to)}" data-amount="${x.amount}">Рассчитались</button></div>`).join('')}</div></section>`:''}
+    ${list.length?Object.entries(byDay).map(([d,es])=>`<h3 class="section-t">${d?esc(fmtDay(d,true)):'Без дня'}</h3><div class="exps">${es.map(expRow).join('')}</div>`).join('')
+      :'<div class="empty"><p>Пока расходов нет. Добавь первый: ужин, такси, билеты.</p></div>'}</div>`;
+}
+function expRow(e){
+  const tr=e.kind==='transfer';
+  return `<button class="exp ${tr?'tr':''}" data-act="edit-exp" data-id="${esc(e.id)}"><span class="nm"><b>${esc(tr?'Перевод':(e.title||'Без названия'))}</b><span>${tr?`${esc(e.paidBy)} → ${esc(e.split[0])}`:`платил(а) ${esc(e.paidBy)} · на ${e.split.length}`}</span></span><span class="amt">${money(e.amount)}</span></button>`;
+}
+function openExpenseForm(e){
+  const t=trip(); const isNew=!e; const g=moneyGroup(t), all=t.members||[];
+  if(e&&e.kind==='transfer'){ openMenu(`Перевод ${money(e.amount)}: ${e.paidBy} → ${e.split[0]}`,[{label:'Удалить перевод',act:'rm-exp',data:{id:e.id},danger:true,confirm:'Точно удалить перевод?'}]); return; }
+  const d=e?JSON.parse(JSON.stringify(e)):{amount:0,title:'',paidBy:g.includes(me())?me():g[0],split:g.slice(),day:todayISO()};
+  const days=[...new Set([...(t.days||[]),d.day].filter(Boolean))].sort();
+  const extra=all.filter(n=>!g.includes(n)); let showAll=extra.some(n=>d.split.includes(n)||d.paidBy===n);
+  let amtText=d.amount?String(d.amount/100):'';
+  const chips=(kind,names)=>names.map(n=>`<button type="button" class="chip nobullet" data-${kind}="${esc(n)}" aria-pressed="${kind==='payer'?d.paidBy===n:d.split.includes(n)}">${esc(n)}</button>`).join('');
+  const html=()=>`<h2>${isNew?'Новый расход':'Расход'}</h2><form data-form="exp">
+    <div class="field"><label for="x-amt">Сумма, $</label><input id="x-amt" class="amt-in" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(amtText)}"></div>
+    <div class="field"><label for="x-title">За что</label><input id="x-title" value="${esc(d.title||'')}" placeholder="Ужин, такси, билеты…" autocomplete="off"></div>
+    <div class="field"><span class="lab">Кто платил</span><div class="people">${chips('payer',showAll?all:[...new Set(g.concat(d.paidBy))])}</div></div>
+    <div class="field"><span class="lab">На кого делим <span id="x-each"></span></span><div class="people">${chips('sp',showAll?all:g)}</div>
+      ${extra.length&&!showAll?`<button type="button" class="linkbtn" data-fact="all">+ ещё: ${esc(extra.join(', '))}</button>`:''}</div>
+    <div class="field"><label for="x-day">День</label><select id="x-day">${days.map(x=>`<option value="${esc(x)}" ${x===d.day?'selected':''}>${esc(fmtDay(x))}</option>`).join('')}</select></div>
+    <div class="sheet-actions"><button class="btn primary" type="submit">${isNew?'Добавить':'Сохранить'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button><span class="spacer"></span>${isNew?'':'<button class="btn ghost danger" type="button" data-fact="del">Удалить</button>'}</div></form>`;
+  openSheet(html(), sheet=>{
+    const sync=()=>{ amtText=$('#x-amt').value; d.title=$('#x-title').value.trim(); d.day=$('#x-day').value; };
+    const each=()=>{ const a=parseMoney($('#x-amt').value), n=d.split.length; $('#x-each').textContent=a&&n?`· по ${money(Math.round(a/n))}`:''; };
+    const mount=()=>{ $('#x-amt').addEventListener('input',each); each(); };
+    mount(); if(isNew) setTimeout(()=>{ try{ $('#x-amt').focus(); }catch(_){} },50);
+    let delArmed=false;
+    sheet.addEventListener('click',async ev=>{
+      const pb=ev.target.closest('[data-payer]'), sp=ev.target.closest('[data-sp]'), f=ev.target.closest('[data-fact]');
+      if(pb){ d.paidBy=pb.dataset.payer; sheet.querySelectorAll('[data-payer]').forEach(x=>x.setAttribute('aria-pressed',x===pb)); }
+      if(sp){ const n=sp.dataset.sp; d.split=d.split.includes(n)?d.split.filter(x=>x!==n):d.split.concat(n); sp.setAttribute('aria-pressed',d.split.includes(n)); each(); }
+      if(f&&f.dataset.fact==='all'){ sync(); showAll=true; sheet.innerHTML=html(); mount(); }
+      if(f&&f.dataset.fact==='del'){ if(!delArmed){ delArmed=true; f.textContent='Точно удалить?'; return; } closeSheet(); await write(()=>expRef(e.id).delete(),'Расход удалён'); }
+    });
+    sheet.addEventListener('submit',async ev=>{
+      ev.preventDefault(); sync(); const amount=parseMoney(amtText);
+      if(!amount){ toast('Введи сумму'); $('#x-amt').focus(); return; }
+      if(!d.split.length){ toast('Выбери, на кого делим'); return; }
+      const body={tripId:t.id,kind:'expense',title:d.title,amount,paidBy:d.paidBy,split:d.split,day:d.day};
+      closeSheet();
+      if(isNew) await write(()=>expRef(newId('x')).set({...body,addedBy:me()||'',createdAt:new Date().toISOString()}),'Расход добавлен');
+      else await write(()=>expRef(e.id).update(body),'Сохранено');
+    });
+  });
+}
+function openMoneyGroupForm(){
+  const t=trip(); const sel=new Set(moneyGroup(t));
+  openSheet(`<h2>Кто в общих расходах</h2><p class="hint" style="margin-bottom:12px">На них новый расход делится по умолчанию. Остальных можно добавить в конкретный расход.</p>
+    <div class="people">${(t.members||[]).map(n=>`<button type="button" class="chip nobullet" data-mg="${esc(n)}" aria-pressed="${sel.has(n)}">${esc(n)}</button>`).join('')}</div>
+    <div class="sheet-actions" style="margin-top:14px"><button class="btn primary" data-fact="save">Сохранить</button><button class="btn ghost" data-act="close-sheet">Отмена</button></div>`, sheet=>{
+    sheet.addEventListener('click',async e=>{
+      const c=e.target.closest('[data-mg]');
+      if(c){ const n=c.dataset.mg; if(sel.has(n)) sel.delete(n); else sel.add(n); c.setAttribute('aria-pressed',sel.has(n)); return; }
+      if(e.target.closest('[data-fact="save"]')){
+        if(sel.size<2){ toast('Нужно хотя бы двое'); return; }
+        const list=(t.members||[]).filter(n=>sel.has(n)); closeSheet();
+        await write(()=>tripRef(t.id).update({moneyGroup:list}),'Делим на '+list.length);
+      }
+    });
+  });
 }
 
 /* ---------- sheets ---------- */
@@ -970,6 +1075,14 @@ document.addEventListener('click', async e=>{
     case 'status': S.f.status=a.dataset.st; render(); break;
     case 'qf': S.f[a.dataset.k]=!S.f[a.dataset.k]; render(); break;
     case 'filters': openFilters(); break;
+    case 'add-exp': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openExpenseForm(null); break;
+    case 'edit-exp': { const e=S.expenses.find(x=>x.id===id); if(e) openExpenseForm(e); break; }
+    case 'rm-exp': await write(()=>expRef(id).delete(),'Удалено'); break;
+    case 'money-group': openMoneyGroupForm(); break;
+    case 'settle': { const from=a.dataset.from, to=a.dataset.to, amount=+a.dataset.amount, xid=newId('x');
+      if(await write(()=>expRef(xid).set({tripId:t.id,kind:'transfer',title:'',amount,paidBy:from,split:[to],day:todayISO(),addedBy:me()||'',createdAt:new Date().toISOString()})))
+        toast(`${from} → ${to}: ${money(amount)} отмечено`,{label:'Отменить',fn:()=>write(()=>expRef(xid).delete(),'Отменено')});
+      break; }
     case 'day-menu': { const d=a.dataset.day, st=dayStops(d), home=homeFor(st);
       openMenu(fmtDay(d,true),[ st.some(hasPt)&&{label:'Карта дня',act:'day-map',data:{day:d}},
         st.filter(hasPt).length>=(home?2:3)&&{label:home?'Упорядочить по пути от жилья':'Упорядочить по пути',act:'sort-day',data:{day:d}},
@@ -1035,7 +1148,7 @@ document.addEventListener('change', async e=>{
 });
 document.addEventListener('input', e=>{ if(e.target.id==='q'){ S.f.q=e.target.value; renderList(); } });
 document.addEventListener('submit', async e=>{
-  const f=e.target; const kind=f.dataset.form; if(!kind||kind==='place') return; e.preventDefault(); const t=trip();
+  const f=e.target; const kind=f.dataset.form; if(!kind||kind==='place'||kind==='exp') return; e.preventDefault(); const t=trip();
   if(kind==='add-member'){ const n=$('#new-member').value.trim(); if(!n) return; if((t.members||[]).some(x=>x.toLowerCase()===n.toLowerCase())){ toast('Такой участник уже есть'); return; } $('#new-member').value=''; await write(()=>tripRef(t.id).update({members:[...(t.members||[]),n]})); }
   if(kind==='add-day'){ const d=$('#d-date').value; if(!d) return; if((t.days||[]).includes(d)){ toast('Этот день уже есть'); return; } closeSheet(); await write(()=>tripRef(t.id).update({days:[...(t.days||[]),d].sort()}),'День добавлен'); }
   if(kind==='trip'){
@@ -1080,6 +1193,8 @@ else{
     if(!S.trips.length&&!s.metadata.fromCache&&!seeded){ seeded=true; FS.collection('trips').doc(SEED_TRIP.id).set(SEED_TRIP.data).catch(err); }
     pickTrip(); if(S.loaded.places){ S.dbState='ok'; softRender(); }
   }, err);
+  FS.collection('expenses').onSnapshot(s=>{ S.expenses=s.docs.map(d=>({id:d.id,...d.data()})); S.moneyErr=false; if(S.tab==='money') softRender(); },
+    e=>{ console.warn('expenses',e); S.moneyErr=true; if(S.tab==='money') render(); }); // если правила ещё не опубликованы — ломаются только деньги
   FS.collection('places').onSnapshot(s=>{
     S.places=s.docs.map(d=>({id:d.id,...d.data()})); S.loaded.places=true;
     if(S.loaded.trips){ S.dbState='ok'; softRender(); }
