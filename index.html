@@ -570,7 +570,7 @@ function liveFail(e){
   console.warn('live',e);
   if(e&&e.code==='permission-denied'&&sharing()){ LS.set('live:'+S.tripId,false); updateLiveBtn(); toast('Пока не работает: в базе не открыт доступ для точек. Скажи Алексею.'); }
 }
-function liveStart(){ locate(()=>liveTick()); if(!liveTimer) liveTimer=setInterval(liveTick,LIVE_MS); }
+function liveStart(){ locate(()=>liveTick()); if(!liveTimer) liveTimer=setInterval(liveTick,1000); } // проверка каждую секунду — сама запись не чаще LIVE_MS
 function updateLiveBtn(){ const b=$('#live-btn'); if(b){ b.setAttribute('aria-pressed',sharing()); b.setAttribute('aria-label',sharing()?'Тебя видно на карте. Нажми, чтобы скрыться':'Показывать меня на карте'); } }
 // Чужие точки слушаем, только пока открыта карта и приложение на экране
 function liveListen(){
