@@ -367,7 +367,7 @@ const SEED_TRIP = {id:'nyc-2026', data:{name:'Нью-Йорк',city:'Нью-Йо
 const S = {
   dbState:'loading', trips:[], places:[], loaded:{trips:false,places:false},
   tripId: LS.get('trip',null), tab:'places',
-  f:{cat:'all',status:'all',sort:'votes',q:'',indoor:false,short:false},
+  f:{cat:'all',status:'todo',sort:'votes',q:'',indoor:false,short:false}, // todo — кроме тех, где уже были
   mapDay:'all', mapSel:null, confirmMember:null,
   offline:!navigator.onLine, here:null, scroll:{}, flash:null, stale:false, expenses:[], moneyErr:false, people:[]
 };
@@ -543,7 +543,7 @@ function locate(cb){
     if(!hereShown||haversine(hereShown,S.here)>0.05){ hereShown=S.here; if(S.f.sort==='near') S.listKey=null; if(selectOpen()) S.stale=true; else if(S.tab==='places') renderList(); else if(S.tab==='map') renderMapCard(); } // не дёргать список на каждые пару метров
   }, err=>{
     // Временные сбои (тоннель, метро, таймаут) — watch продолжает работать сам, ждём. Останавливаемся только при запрете доступа.
-    if(err.code===1){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[]; toast('Нет доступа к геолокации. Разреши его для браузера в настройках.'); if(sharing()){ LS.set('live:'+S.tripId,false); updateLiveBtn(); } }
+    if(err.code===1){ navigator.geolocation.clearWatch(geoWatch); geoWatch=null; geoWaiters=[]; const sh=sharing(); if(sh){ LS.set('live:'+S.tripId,false); updateLiveBtn(); } toast(sh?'Нет доступа к геолокации, поэтому тебя не видно на карте. Разреши его в настройках и нажми кнопку с человечком на карте.':'Нет доступа к геолокации. Разреши его для браузера в настройках.'); }
     else if(geoWaiters.length&&!S.here){ geoWaiters=[]; toast('Не получилось определить, где ты'); }
   }, {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
 }
@@ -554,7 +554,7 @@ const fromMe = p => S.here&&hasPt(p) ? haversine(S.here,p) : null;
 // из сотен точек улетела бы разом после метро. Потолок записей в день на телефон бережёт бесплатный лимит Firestore.
 const LIVE_MS=7000, LIVE_IDLE_MS=60000, LIVE_DAY_CAP=2500;
 const liveId = (tid,n) => tid+'__'+String(n).replace(/\//g,'_');
-const sharing = () => !!(S.tripId&&me()&&LS.get('live:'+S.tripId,false));
+const sharing = () => !!(S.tripId&&me()&&LS.get('live:'+S.tripId,true)); // по умолчанию включено; выключенное запоминается
 let liveLast=null, liveUnsub=null, liveTid=null, liveTimer=null;
 const PCOLORS=['#d9480f','#1971c2','#2f9e44','#9c36b5','#e8590c','#0c8599','#c2255c','#5f3dc4'];
 const personColor = n => { let h=0; for(const ch of String(n)) h=(h*31+ch.charCodeAt(0))>>>0; return PCOLORS[h%PCOLORS.length]; };
@@ -625,18 +625,19 @@ function render(){
 /* Places */
 function filteredPlaces(){
   const q=S.f.q.trim().toLowerCase();
-  let l=tripPlaces().filter(p=>(S.f.cat==='all'||catId(p)===S.f.cat)&&(S.f.status==='all'||statusOf(p)===S.f.status)&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
+  let l=tripPlaces().filter(p=>(S.f.cat==='all'||catId(p)===S.f.cat)&&(S.f.status==='all'||(S.f.status==='todo'?!p.done:statusOf(p)===S.f.status))&&(!S.f.indoor||p.indoor===true)&&(!S.f.short||(dur(p)>0&&dur(p)<=60))&&(!q||[p.name,p.area,p.why,p.addedBy,p.address].join(' ').toLowerCase().includes(q)));
   const by={votes:(a,b)=>score(b)-score(a)||(b.createdAt||'').localeCompare(a.createdAt||''), new:(a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''), area:(a,b)=>(a.area||'яяя').localeCompare(b.area||'яяя','ru')||score(b)-score(a), near:(a,b)=>(fromMe(a)??1e9)-(fromMe(b)??1e9)||score(b)-score(a)};
   l.sort(by[S.f.sort]||by.votes);
   // Пока ты на вкладке, порядок не прыгает от голосов (своих и чужих): пересортировка при входе на вкладку и смене фильтров
   const key=JSON.stringify([S.tripId,S.f]);
   if(key!==S.listKey){ S.listKey=key; S.listOrder=l.map(p=>p.id); return l; }
   const pos=new Map(S.listOrder.map((id,i)=>[id,i])); const fresh=l.filter(p=>!pos.has(p.id));
-  const kept=l.filter(p=>pos.has(p.id)).sort((a,b)=>pos.get(a.id)-pos.get(b.id));
+  // и не исчезает, если сам отметил «Были»: карточка уйдёт при следующем входе на вкладку
+  const kept=l.concat(tripPlaces().filter(p=>pos.has(p.id)&&p.done&&S.f.status==='todo')).filter(p=>pos.has(p.id)).sort((a,b)=>pos.get(a.id)-pos.get(b.id));
   const out=fresh.concat(kept); S.listOrder=out.map(p=>p.id); return out;
 }
 function catChips(counts){
-  const all=tripPlaces().length;
+  const all=tripPlaces().filter(p=>S.f.status!=='todo'||!p.done).length;
   return `<button class="chip nobullet" data-act="cat" data-cat="all" aria-pressed="${S.f.cat==='all'}">Все <span class="n">${all}</span></button>`+
     CATS.map(c=>`<button class="chip" data-act="cat" data-cat="${c.id}" aria-pressed="${S.f.cat===c.id}"><span class="bullet sm ${c.dark?'dark':''}" style="--b:${c.c}">${c.l}</span>${c.name}${counts?` <span class="n">${counts[c.id]||0}</span>`:''}</button>`).join('');
 }
@@ -647,9 +648,9 @@ function renderPlaces(){
     main.innerHTML=`<div class="wrap"><div id="ban"></div><div class="toolbar"><input class="search" id="q" type="search" placeholder="Поиск по местам, районам, именам" value="${esc(S.f.q)}" autocomplete="off"><button class="btn primary" data-act="add">+ Место</button></div><div class="chips" id="cats"></div><div class="filters2" id="f2"></div><div class="list" id="list"></div></div>`;
   }
   $('#ban').innerHTML=banners();
-  const counts={}; tripPlaces().forEach(p=>counts[catId(p)]=(counts[catId(p)]||0)+1);
+  const counts={}; tripPlaces().filter(p=>S.f.status!=='todo'||!p.done).forEach(p=>counts[catId(p)]=(counts[catId(p)]||0)+1);
   $('#cats').innerHTML=catChips(counts);
-  const nf=(S.f.status!=='all')+S.f.indoor+S.f.short;
+  const nf=(S.f.status!=='todo')+S.f.indoor+S.f.short;
   $('#f2').innerHTML=`<select class="sel" id="sort" aria-label="Сортировка"><option value="votes" ${S.f.sort==='votes'?'selected':''}>По голосам</option><option value="new" ${S.f.sort==='new'?'selected':''}>Сначала новые</option><option value="area" ${S.f.sort==='area'?'selected':''}>По районам</option><option value="near" ${S.f.sort==='near'?'selected':''}>Рядом со мной</option></select>
     <button class="chip fbtn" data-act="filters" aria-pressed="${nf>0}">Фильтры${nf?` <span class="n">${nf}</span>`:''}</button>`;
   renderList();
@@ -657,8 +658,10 @@ function renderPlaces(){
 function renderList(){
   const list=filteredPlaces(); const el=$('#list'); if(!el) return;
   if(!tripPlaces().length){ el.innerHTML=`<div class="empty"><h2>Пока пусто</h2><p>Добавь первое место: название или ссылку из Google Maps. Адрес и точку на карте найдём сами.</p><button class="btn primary" data-act="add">+ Добавить место</button></div>`; return; }
+  if(!list.length&&S.f.status==='todo'&&tripPlaces().every(p=>p.done)&&S.f.cat==='all'&&!S.f.q){ el.innerHTML=`<div class="empty"><h2>Везде уже были</h2><p>Добавь новые места или посмотри, где были.</p><button class="btn" data-act="show-done">Показать, где были</button></div>`; return; }
   if(!list.length){ el.innerHTML=`<div class="empty"><p>Под эти фильтры ничего не подходит.${S.f.short?' «До часа» показывает только места, где указано время.':''}${S.f.indoor?' «На дождь» — только где отмечено «в помещении».':''}</p><button class="btn" data-act="reset-f">Сбросить фильтры</button></div>`; return; }
-  el.innerHTML=list.map(cardHTML).join('');
+  const hidden=S.f.status==='todo'?tripPlaces().filter(p=>p.done).length:0;
+  el.innerHTML=list.map(cardHTML).join('')+(hidden?`<p class="hint" style="text-align:center;padding:4px 0 8px">Скрыто ${hidden} ${plural(hidden,'место','места','мест')}, где уже были · <button class="linkbtn" data-act="show-done">Показать</button></p>`:'');
   if(S.flash&&S.places.some(p=>p.id===S.flash)){ const c=document.getElementById('p-'+S.flash); S.flash=null; if(c){ c.classList.add('flash'); c.scrollIntoView({block:'center'}); } }
 }
 function dayOptions(p){
@@ -914,12 +917,12 @@ function nagAnya(){
 // Статус и «На дождь / До часа» — в листе, чтобы не занимать строки над списком. Применяется сразу.
 function openFilters(){
   const html=()=>`<h2>Фильтры</h2>
-    <div class="field"><span class="lab">Что показать</span><div class="seg" role="group">${[['all','Все'],['idea','Идеи'],['planned','В плане'],['done','Были']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div></div>
+    <div class="field"><span class="lab">Что показать</span><div class="seg" role="group">${[['todo','Ещё не были'],['idea','Идеи'],['planned','В плане'],['done','Были'],['all','Все']].map(([k,l])=>`<button data-act="status" data-st="${k}" aria-pressed="${S.f.status===k}">${l}</button>`).join('')}</div></div>
     <div class="field"><span class="lab">Только</span><div class="chips" style="flex-wrap:wrap"><button class="chip qf" data-act="qf" data-k="indoor" aria-pressed="${S.f.indoor}">На дождь</button><button class="chip qf" data-act="qf" data-k="short" aria-pressed="${S.f.short}">До часа</button></div>
       <p class="hint" style="margin-top:6px">«До часа» — только где указано время, «На дождь» — где отмечено «в помещении».</p></div>
     <div class="sheet-actions"><button class="btn primary" data-act="close-sheet">Готово</button><button class="btn ghost" data-fact="freset">Сбросить</button></div>`;
   openSheet(html(), sheet=>sheet.addEventListener('click',e=>{
-    if(e.target.closest('[data-fact="freset"]')){ Object.assign(S.f,{status:'all',indoor:false,short:false}); render(); }
+    if(e.target.closest('[data-fact="freset"]')){ Object.assign(S.f,{status:'todo',indoor:false,short:false}); render(); }
     if(e.target.closest('[data-act="status"],[data-act="qf"],[data-fact="freset"]')) setTimeout(()=>{ if(sheet.isConnected) sheet.innerHTML=html(); },0); // после общего обработчика
   }));
 }
@@ -1046,7 +1049,7 @@ function openPlaceForm(p,opts={}){
       closeSheet();
       if(isNew&&base){ await write(()=>placeRef(newId('p')).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),order:0,votes:{}}),'Опорная точка добавлена'); }
       else if(isNew){ const id=newId('p'); S.flash=id;
-        if(S.f.cat!=='all'&&S.f.cat!==d.category) S.f.cat='all'; if(!['all','idea'].includes(S.f.status)) S.f.status='all'; if(S.f.q){ S.f.q=''; const q=$('#q'); if(q) q.value=''; } S.f.indoor=S.f.short=false; // чтобы новое место было видно
+        if(S.f.cat!=='all'&&S.f.cat!==d.category) S.f.cat='all'; if(!['all','todo','idea'].includes(S.f.status)) S.f.status='todo'; if(S.f.q){ S.f.q=''; const q=$('#q'); if(q) q.value=''; } S.f.indoor=S.f.short=false; // чтобы новое место было видно
         await write(()=>placeRef(id).set({...body,addedBy:me()||'',createdAt:new Date().toISOString(),day:'',done:false,order:0,votes:me()?{[me()]:2}:{}}),'Место добавлено'); }
       else await write(()=>placeRef(p.id).update(body),'Сохранено');
     });
@@ -1125,11 +1128,12 @@ document.addEventListener('click', async e=>{
       else if(S.tab!==prev) main.scrollTop=S.scroll[S.tab]||0;
       break; }
     case 'pick-me': openMePicker(); break;
-    case 'set-me': { const old=me(); if(old&&old!==a.dataset.name&&sharing()) ref('live',liveId(S.tripId,old)).delete().catch(()=>{}); LS.set('me:'+S.tripId,a.dataset.name); liveLast=null; closeSheet(); render(); break; }
+    case 'set-me': { const old=me(); if(old&&old!==a.dataset.name&&sharing()) ref('live',liveId(S.tripId,old)).delete().catch(()=>{}); LS.set('me:'+S.tripId,a.dataset.name); liveLast=null; closeSheet(); render(); if(sharing()) liveStart(); break; }
     case 'add': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openPlaceForm(null); break;
     case 'edit': { const p=findAny(id); if(p) openPlaceForm(p); else toast('Это место уже удалили'); break; }
     case 'cat': S.f.cat=a.dataset.cat; render(); break;
     case 'status': S.f.status=a.dataset.st; render(); break;
+    case 'show-done': S.f.status='all'; render(); break;
     case 'qf': S.f[a.dataset.k]=!S.f[a.dataset.k]; render(); break;
     case 'filters': openFilters(); break;
     case 'add-exp': if(!me()){ openMePicker(); toast('Сначала выбери, кто ты'); } else openExpenseForm(null); break;
@@ -1147,7 +1151,7 @@ document.addEventListener('click', async e=>{
     case 'place-menu': { const p=findAny(id); if(!p) return; const l=safeUrl(p.link), city=t.city;
       openMenu(p.name,[ hasPt(p)&&{label:'Показать на карте',act:'show-map',data:{id}}, hasPt(p)&&{label:'Как добраться',href:goUrl(p,city)},
         {label:'Открыть в Google Maps',href:gmUrl(p,city)}, l&&!isGmaps(l)&&{label:'Ссылка',href:l}, {label:'Изменить',act:'edit',data:{id}} ].filter(Boolean)); break; }
-    case 'reset-f': { S.f={cat:'all',status:'all',sort:S.f.sort,q:'',indoor:false,short:false}; const q=$('#q'); if(q) q.value=''; render(); break; }
+    case 'reset-f': { S.f={cat:'all',status:'todo',sort:S.f.sort,q:'',indoor:false,short:false}; const q=$('#q'); if(q) q.value=''; render(); break; }
     case 'vote': {
       const m=me(); if(!m){ openMePicker(); return; }
       const p=tripPlaces().find(x=>x.id===id); if(!p) return; const cur=(p.votes||{})[m]; const v=+a.dataset.v;
