@@ -815,7 +815,13 @@ const moneyGroup = t => { const m=t.members||[]; const g=Array.isArray(t.moneyGr
 const validExp = e => e&&Number.isInteger(e.amount)&&e.amount>0&&typeof e.paidBy==='string'&&Array.isArray(e.split)&&e.split.length>0;
 const tripExpenses = () => S.expenses.filter(e=>e.tripId===S.tripId&&validExp(e));
 // Доли в центах: остаток раздаём по центу по алфавиту, чтобы у всех телефонов итоги сходились до цента
-function shares(e){ const names=[...new Set(e.split)].sort(); const base=Math.floor(e.amount/names.length); let rem=e.amount-base*names.length; return names.map(n=>[n,base+(rem-->0?1:0)]); }
+// Лишние центы от деления берёт на себя тот, кто платил: должники платят поровну. Не в расходе — центы по кругу от id расхода, а не всегда первым по алфавиту
+function shares(e){
+  const names=[...new Set(e.split)].sort(), n=names.length, base=Math.floor(e.amount/n), rem=e.amount-base*n;
+  if(names.includes(e.paidBy)) return names.map(x=>[x,base+(x===e.paidBy?rem:0)]);
+  let h=0; for(const c of String(e.id||'')) h=(h*31+c.charCodeAt(0))>>>0;
+  return names.map((x,i)=>[x,base+((i-h%n+n)%n<rem?1:0)]);
+}
 function balances(list){ const b={}; for(const e of list){ b[e.paidBy]=(b[e.paidBy]||0)+e.amount; for(const [n,x] of shares(e)) b[n]=(b[n]||0)-x; } return b; }
 // Кто кому: самый большой долг гасим самому большому получателю — переводов не больше, чем людей
 function settle(b){
@@ -860,7 +866,7 @@ function openExpenseForm(e){
     <div class="sheet-actions"><button class="btn primary" type="submit">${isNew?'Добавить':'Сохранить'}</button><button class="btn ghost" type="button" data-act="close-sheet">Отмена</button><span class="spacer"></span>${isNew?'':'<button class="btn ghost danger" type="button" data-fact="del">Удалить</button>'}</div></form>`;
   openSheet(html(), sheet=>{
     const sync=()=>{ amtText=$('#x-amt').value; d.title=$('#x-title').value.trim(); d.day=$('#x-day').value; };
-    const each=()=>{ const a=parseMoney($('#x-amt').value), n=d.split.length; $('#x-each').textContent=a&&n?`· по ${money(Math.round(a/n))}`:''; };
+    const each=()=>{ const a=parseMoney($('#x-amt').value), n=d.split.length; $('#x-each').textContent=a&&n?`· по ${money(Math.floor(a/n))}`:''; };
     const mount=()=>{ $('#x-amt').addEventListener('input',each); each(); };
     mount(); if(isNew) setTimeout(()=>{ try{ $('#x-amt').focus(); }catch(_){} },50);
     let delArmed=false;
